@@ -4,8 +4,7 @@ Teamboard is a small Kanban board (boards, columns, cards, comments, feature fla
 workload used to compare developer environments (mise, Dev Containers, Coder): the app is
 deliberately ordinary, so differences between environments are the interesting part.
 
-The repository contains the database package, the API and the React web client. Storybook is
-added separately.
+The repository contains the database package, the API, the React web client and its Storybook.
 
 ## Quick start
 
@@ -39,22 +38,25 @@ Requirements: Node 24 (`engines` is `>=24 <25`, `engine-strict=true`). There is 
 
 ## Scripts (run from the repo root)
 
-| Script               | What it does                                                                         |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `npm run dev`        | Runs every `dev:*` script with concurrently: the API and the web client.             |
-| `npm run dev:api`    | API with `tsx watch` (same as `npm run dev -w @teamboard/api`).                      |
-| `npm run dev:web`    | Vite dev server on 5173 with the `/api` proxy.                                       |
-| `npm run build`      | Type-checks and builds every workspace that has a build (the web client).            |
-| `npm test`           | Unit, component and API integration tests (vitest; the API tests use real Postgres). |
-| `npm run test:e2e`   | Playwright against the real stack, see "Tests and CI".                               |
-| `npm run db:migrate` | Applies pending SQL migrations.                                                      |
-| `npm run db:seed`    | Seeds config, mock fixtures and the "Sprint 24" starter board. Idempotent.           |
-| `npm run db:setup`   | `db:migrate` then `db:seed`.                                                         |
-| `npm run db:reset`   | Drops the `app`, `config` and `mocks` schemas, then runs `db:setup`.                 |
-| `npm run lint`       | ESLint and `prettier --check`.                                                       |
-| `npm run format`     | `prettier --write`.                                                                  |
-| `npm run typecheck`  | `tsc --noEmit` in every workspace.                                                   |
-| `npm run doctor`     | Checks Node version, `DATABASE_URL`, DB reachability, migrations, and free ports.    |
+| Script                    | What it does                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------ |
+| `npm run dev`             | Runs every `dev:*` script with concurrently: the API and the web client.             |
+| `npm run dev:api`         | API with `tsx watch` (same as `npm run dev -w @teamboard/api`).                      |
+| `npm run dev:web`         | Vite dev server on 5173 with the `/api` proxy.                                       |
+| `npm run build`           | Type-checks and builds every workspace that has a build (the web client).            |
+| `npm test`                | Unit, component and API integration tests (vitest; the API tests use real Postgres). |
+| `npm run storybook`       | Storybook on http://localhost:6006 (needs `DATABASE_URL`), see "Storybook".          |
+| `npm run build-storybook` | Static Storybook in `apps/web/storybook-static`.                                     |
+| `npm run test:ui`         | Every story as a browser test (play functions and axe), see "Storybook".             |
+| `npm run test:e2e`        | Playwright against the real stack, see "Tests and CI".                               |
+| `npm run db:migrate`      | Applies pending SQL migrations.                                                      |
+| `npm run db:seed`         | Seeds config, mock fixtures and the "Sprint 24" starter board. Idempotent.           |
+| `npm run db:setup`        | `db:migrate` then `db:seed`.                                                         |
+| `npm run db:reset`        | Drops the `app`, `config` and `mocks` schemas, then runs `db:setup`.                 |
+| `npm run lint`            | ESLint and `prettier --check`.                                                       |
+| `npm run format`          | `prettier --write`.                                                                  |
+| `npm run typecheck`       | `tsc --noEmit` in every workspace.                                                   |
+| `npm run doctor`          | Checks Node version, `DATABASE_URL`, DB reachability, migrations, and free ports.    |
 
 `npm run doctor` exits non-zero when a check fails and prints a short fix hint. It expects ports
 5173, 3000 and 6006 to be free, so run it before starting the dev servers.
@@ -132,6 +134,40 @@ request origin.
 | `POST /api/cards/:id/comments` | Body `{ authorId, body }`.                                            |
 | `GET /api/users`               | The team.                                                             |
 
+## Storybook
+
+```sh
+npm run db:setup     # once, seeds mocks.fixtures
+npm run storybook    # http://localhost:6006
+```
+
+Stories live next to the components (`apps/web/src/components/*/*.stories.tsx`) and under
+`apps/web/src/stories` (layout, pages, the "How we test UI" page). They cover single components,
+compositions (Board, Column, CardDialog), the app shell at 375/768/1440 px, a light/dark/RTL
+gallery, and the board page with MSW (loading, empty, error with retry, populated, overloaded and
+feature-flag combinations). The toolbar switches theme and text direction.
+
+**Fixtures come from the database.** The Storybook dev server reads `mocks.fixtures` with `pg`,
+validates the rows and serves them at `/__fixtures/:name`. To change a story, edit the row and
+reload:
+
+```sql
+update mocks.fixtures set data = jsonb_set(data, '{columns,0,name}', '"Hello"') where name = 'typical';
+```
+
+If the database is unreachable the stories show an error panel and Storybook keeps running.
+`npm run build-storybook` bakes the fixtures into `__fixtures.json`, so the static site needs no
+database.
+
+Tests: `npm run test:ui` (every story, play functions and axe in headless Chromium; needs
+`npx playwright install chromium`) and `npm test` (includes the portable-stories unit test,
+no browser). CI runs `test:ui` in the `storybook` job.
+
+VS Code Story Explorer: it needs `npm run storybook` running so that
+`http://localhost:6006/index.json` is served.
+
+Details: [docs/storybook.md](docs/storybook.md).
+
 ## Tests and CI
 
 `npm test` runs against the real Postgres in `DATABASE_URL`. Each API/db test file creates a
@@ -143,6 +179,7 @@ throwaway schema prefix (for example `t1a2b3c4_app`) and drops it with `CASCADE`
 and mouse moves (persistence checked in SQL), comments, flag toggle, env chip, RTL overflow and
 axe (light and dark). Browser setup: [docs/browser-prerequisites.md](docs/browser-prerequisites.md).
 
-`.github/workflows/ci.yml` has two jobs on Node 24 with a `postgres:16` service: `check` (lint,
-typecheck, `db:setup`, build, test) and `e2e` (Chromium with deps, `test:e2e`, report artifact).
+`.github/workflows/ci.yml` has three jobs on Node 24 with a `postgres:16` service: `check` (lint,
+typecheck, `db:setup`, build, test), `e2e` (Chromium with deps, `test:e2e`, report artifact) and
+`storybook` (`db:setup`, Chromium with deps, `test:ui`, `build-storybook`).
 VS Code: `.vscode/` has launch configs, tasks (dev, tests) and recommended extensions.
