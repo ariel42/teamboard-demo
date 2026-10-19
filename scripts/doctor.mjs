@@ -116,8 +116,8 @@ function portFree(port) {
   });
 }
 for (const [port, name] of [
-  [5173, 'web'],
-  [3000, 'API'],
+  [Number(process.env.WEB_PORT ?? 5173), 'web'],
+  [Number(process.env.API_PORT ?? 3000), 'API'],
   [6006, 'Storybook'],
 ]) {
   const free = await portFree(port);
