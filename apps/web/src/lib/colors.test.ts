@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contrastRatio, initialsOf, labelHue, readableTextColor } from './colors';
+import { accessibleColors, contrastRatio, initialsOf, labelHue, readableTextColor } from './colors';
 
 describe('contrastRatio', () => {
   it('is 21 for black on white and 1 for identical colors', () => {
@@ -42,5 +42,20 @@ describe('initialsOf', () => {
     expect(initialsOf('  dana  l  oren ')).toBe('DO');
     expect(initialsOf('Plato')).toBe('P');
     expect(initialsOf('   ')).toBe('?');
+  });
+});
+
+describe('accessibleColors', () => {
+  it('keeps colors that already reach AA', () => {
+    expect(accessibleColors('#1e1b4b')).toEqual({ background: '#1e1b4b', color: '#ffffff' });
+  });
+  it('darkens mid-tone backgrounds until white text reaches 4.5:1', () => {
+    for (const bg of ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#14b8a6']) {
+      const { background, color } = accessibleColors(bg);
+      expect(contrastRatio(background, color)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+  it('passes non-hex input through', () => {
+    expect(accessibleColors('red')).toEqual({ background: 'red', color: '#ffffff' });
   });
 });

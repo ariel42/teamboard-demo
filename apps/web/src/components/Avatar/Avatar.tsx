@@ -1,5 +1,5 @@
 import { cx } from '../../lib/cx';
-import { initialsOf, readableTextColor } from '../../lib/colors';
+import { accessibleColors, initialsOf } from '../../lib/colors';
 import type { User } from '../../lib/types';
 import './Avatar.css';
 
@@ -25,10 +25,11 @@ export function Avatar({
   decorative = false,
   className,
 }: AvatarProps) {
+  const colors = accessibleColors(color);
   return (
     <span
       className={cx('tb-avatar', `tb-avatar--${size}`, className)}
-      style={{ backgroundColor: color, color: readableTextColor(color) }}
+      style={{ backgroundColor: colors.background, color: colors.color }}
       {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': name })}
       title={decorative ? undefined : name}
     >
