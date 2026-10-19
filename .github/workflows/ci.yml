@@ -40,4 +40,42 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run db:setup
+      - run: npm run build
       - run: npm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway credentials for the ephemeral service container only.
+          POSTGRES_USER: teamboard
+          POSTGRES_PASSWORD: teamboard
+          POSTGRES_DB: teamboard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U teamboard"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://teamboard:teamboard@localhost:5432/teamboard
+      DEVENV_KIND: ci
+      DEVENV_USER: github-actions
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7

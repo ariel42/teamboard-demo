@@ -4,7 +4,7 @@ Teamboard is a small Kanban board (boards, columns, cards, comments, feature fla
 workload used to compare developer environments (mise, Dev Containers, Coder): the app is
 deliberately ordinary, so differences between environments are the interesting part.
 
-This repository currently contains the database package and the API. The web UI and Storybook are
+The repository contains the database package, the API and the React web client. Storybook is
 added separately.
 
 ## Quick start
@@ -12,8 +12,11 @@ added separately.
 ```sh
 npm ci
 npm run db:setup   # migrate + seed (safe to re-run)
-npm run dev        # API on http://localhost:3000
+npm run dev        # API on http://localhost:3000, web on http://localhost:5173
 ```
+
+Open http://localhost:5173. Vite proxies `/api` to the API, so the browser only ever uses
+relative `/api` URLs. Add `?dir=rtl` to the URL (or set `data-dir="rtl"` on `<html>`) for RTL.
 
 No env files and no connection strings live in this repo. The environment must provide the
 variables below. `npm run doctor` tells you what is missing.
@@ -28,29 +31,30 @@ variables below. `npm run doctor` tells you what is missing.
 | `PORT`             | no       | API port, default `3000`. Listens on `0.0.0.0`.                        |
 | `DB_SCHEMA_PREFIX` | no       | Prefix for the schema names (default empty). Tests use a random one.   |
 
-Default ports: web 5173, API 3000, Storybook 6006.
+Default ports: web 5173, API 3000, Storybook 6006. If 5173 or 3000 is taken, `WEB_PORT` and
+`API_PORT` override them for the web dev server and the e2e run (the API itself reads `PORT`).
 
 Requirements: Node 24 (`engines` is `>=24 <25`, `engine-strict=true`). There is deliberately no
 `mise.toml` or `.nvmrc`; the environment brings Node.
 
 ## Scripts (run from the repo root)
 
-| Script               | What it does                                                                      |
-| -------------------- | --------------------------------------------------------------------------------- |
-| `npm run dev`        | Runs every `dev:*` script with concurrently (today only `dev:api`).               |
-| `npm run dev:api`    | API with `tsx watch` (same as `npm run dev -w apps/api`).                         |
-| `npm run db:migrate` | Applies pending SQL migrations.                                                   |
-| `npm run db:seed`    | Seeds config, mock fixtures and the "Sprint 24" starter board. Idempotent.        |
-| `npm run db:setup`   | `db:migrate` then `db:seed`.                                                      |
-| `npm run db:reset`   | Drops the `app`, `config` and `mocks` schemas, then runs `db:setup`.              |
-| `npm test`           | Unit and API integration tests (vitest, real Postgres, no browser).               |
-| `npm run lint`       | ESLint and `prettier --check`.                                                    |
-| `npm run format`     | `prettier --write`.                                                               |
-| `npm run typecheck`  | `tsc --noEmit` in every workspace.                                                |
-| `npm run doctor`     | Checks Node version, `DATABASE_URL`, DB reachability, migrations, and free ports. |
-
-To add the web app later: create the workspace with a `dev` script and add a root `dev:web`
-script; `npm run dev` picks up every `dev:*` script automatically.
+| Script               | What it does                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `npm run dev`        | Runs every `dev:*` script with concurrently: the API and the web client.             |
+| `npm run dev:api`    | API with `tsx watch` (same as `npm run dev -w @teamboard/api`).                      |
+| `npm run dev:web`    | Vite dev server on 5173 with the `/api` proxy.                                       |
+| `npm run build`      | Type-checks and builds every workspace that has a build (the web client).            |
+| `npm test`           | Unit, component and API integration tests (vitest; the API tests use real Postgres). |
+| `npm run test:e2e`   | Playwright against the real stack, see "Tests and CI".                               |
+| `npm run db:migrate` | Applies pending SQL migrations.                                                      |
+| `npm run db:seed`    | Seeds config, mock fixtures and the "Sprint 24" starter board. Idempotent.           |
+| `npm run db:setup`   | `db:migrate` then `db:seed`.                                                         |
+| `npm run db:reset`   | Drops the `app`, `config` and `mocks` schemas, then runs `db:setup`.                 |
+| `npm run lint`       | ESLint and `prettier --check`.                                                       |
+| `npm run format`     | `prettier --write`.                                                                  |
+| `npm run typecheck`  | `tsc --noEmit` in every workspace.                                                   |
+| `npm run doctor`     | Checks Node version, `DATABASE_URL`, DB reachability, migrations, and free ports.    |
 
 `npm run doctor` exits non-zero when a check fails and prints a short fix hint. It expects ports
 5173, 3000 and 6006 to be free, so run it before starting the dev servers.
@@ -59,6 +63,7 @@ script; `npm run dev` picks up every `dev:*` script automatically.
 
 ```
 apps/api            Fastify API (src/, test/)
+apps/web            React web client (src/, e2e/)
 packages/db         migrations, seed, repository, shared types, createPool()
 scripts/doctor.mjs  environment check
 ```
@@ -66,6 +71,25 @@ scripts/doctor.mjs  environment check
 `@teamboard/db` exports the shared types (`BoardPayload` is the response of
 `GET /api/boards/:id`), zod schemas for them (`@teamboard/db/schemas`), `createPool()`, the
 repository and a test helper (`@teamboard/db/testing`).
+
+## Web client (apps/web)
+
+Vite 8, React 19, TypeScript, TanStack Query, @dnd-kit, lucide-react.
+
+- Components in `src/components/<Name>/` are purely presentational (props in, callbacks out, one
+  CSS file each, `tb-` class names, no fetching), so Storybook can render them with plain props.
+- Data fetching and mutations live only in pages (`src/pages`) and hooks (`src/hooks`); the card
+  move is optimistic with rollback, then a refetch.
+- Styling uses design tokens (`src/styles/tokens.css`), one indigo accent, light/dark/system
+  themes, logical CSS properties (RTL via `?dir=rtl` or `data-dir`) and `prefers-reduced-motion`.
+- Feature flags (`card_comments`, `due_dates`, `wip_limits`, `compact_cards`) come from
+  `/api/config` and can be toggled from the Flags panel; the env chip shows `DEVENV_KIND` and
+  `DEVENV_USER`.
+- Pages: `BoardPage` (`/boards/:id`) and `BoardListRedirect` (`/`, opens the first board).
+
+Components: `AppShell`, `Avatar`, `Board`, `Button`, `CardDialog`, `Column`, `Comment`,
+`CommentForm`, `CommentList`, `DueDate`, `EnvChip`, `FeatureFlagsPanel`, `Label`, `PriorityBadge`,
+`Skeleton`, `StateMessage`, `TaskCard`, `ThemeToggle`.
 
 ## Database
 
@@ -110,6 +134,15 @@ request origin.
 
 ## Tests and CI
 
-Tests run against the real Postgres in `DATABASE_URL`. Each test file creates a throwaway schema
-prefix (for example `t1a2b3c4_app`) and drops it with `CASCADE` afterwards. `.github/workflows/ci.yml`
-runs lint, typecheck, `db:setup` and the tests on Node 24 with a `postgres:16` service.
+`npm test` runs against the real Postgres in `DATABASE_URL`. Each API/db test file creates a
+throwaway schema prefix (for example `t1a2b3c4_app`) and drops it with `CASCADE` afterwards.
+
+`npm run test:e2e` starts the real API and Vite (Playwright `webServer`), against a fresh schema set
+`e2e_<random>_{app,config,mocks}` that is migrated, seeded and dropped again at the end, with
+`DEVENV_KIND=e2e` and `DEVENV_USER=playwright`. It covers: seeded board, create card, keyboard
+and mouse moves (persistence checked in SQL), comments, flag toggle, env chip, RTL overflow and
+axe (light and dark). Browser setup: [docs/browser-prerequisites.md](docs/browser-prerequisites.md).
+
+`.github/workflows/ci.yml` has two jobs on Node 24 with a `postgres:16` service: `check` (lint,
+typecheck, `db:setup`, build, test) and `e2e` (Chromium with deps, `test:e2e`, report artifact).
+VS Code: `.vscode/` has launch configs, tasks (dev, tests) and recommended extensions.

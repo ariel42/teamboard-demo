@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run dev (API + web)",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": "none",
+      "presentation": { "panel": "dedicated" }
+    },
+    {
+      "label": "Run tests",
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": [],
+      "group": { "kind": "test", "isDefault": true }
+    },
+    {
+      "label": "Run e2e tests",
+      "type": "npm",
+      "script": "test:e2e",
+      "problemMatcher": [],
+      "group": "test"
+    }
+  ]
+}
