@@ -9,12 +9,11 @@ let worker: Promise<SetupWorker> | undefined;
 export function getWorker(): Promise<SetupWorker> {
   worker ??= (async () => {
     const { setupWorker } = await import('msw/browser');
-    const { http, passthrough } = await import('msw');
-    // Fixture and static-file requests go straight to the Storybook server.
-    const instance = setupWorker(http.get('*/__fixtures*', () => passthrough()));
+    // Anything without a handler (fixtures, assets, HMR) goes straight to the Storybook server.
+    const instance = setupWorker();
     await instance.start({
       quiet: true,
-      onUnhandledRequest: 'bypass',
+      onUnhandledFrame: 'bypass',
       serviceWorker: { url: new URL('mockServiceWorker.js', document.baseURI).href },
     });
     return instance;
