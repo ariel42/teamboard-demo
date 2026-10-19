@@ -99,12 +99,17 @@ Fixture-backed stories need the database variables in the environment that start
   `.storybook/main.ts` keeps Storybook's host validation on and accepts `localhost`, `127.0.0.1`,
   `*.yair.link` (the Coder app hosts) and anything in `STORYBOOK_ALLOWED_HOSTS` (comma separated).
 - If a Storybook is already running on 6006, the extension's own launch takes the next free port.
-- **Browser-based VS Code (code-server on Coder): the in-editor preview cannot work.** The extension
-  loads its preview from `http://localhost:<port>` inside the editor page, and in a browser that
-  `localhost` is the developer's own PC, not the workspace; desktop VS Code (Remote-SSH, Dev Containers)
-  maps the port and works. In code-server use the globe icon / "Story Explorer: Open Storybook in Browser"
-  (it opens `https://6006--main--<workspace>--<user>--coder.yair.link`, the user's own Storybook), or the
-  **Storybook** button of the Coder workspace. The story tree, "Go to Story Source" and code lenses work.
-  VS Code's Simple Browser is blocked the same way.
+- **Browser-based VS Code (code-server on Coder): the in-editor preview works through a patch.** Unpatched, the
+  extension loads its preview from `http://localhost:<port>`, which in a browser is the developer's own PC.
+  The Coder image therefore patches the extension (`coder/image/patch-story-explorer.mjs` in the `dev-env`
+  repo): it asks VS Code for the externally reachable address, which code-server turns into the Coder port URL
+  (`<port>--main--<workspace>--<user>--coder.yair.link`, owner only). Storybook must allow being embedded from
+  there: `.storybook/main.ts` sets `security.insecureRemoteIframeEmbed` and `insecureIframeMessaging` when
+  `DEVENV_KIND` is `coder`, and not elsewhere. Open a preview with the **Preview Story** code lens above a
+  story. Desktop VS Code (Remote-SSH, Dev Containers) needs no patch: it maps the port itself.
+  - The extension's auto-update is off in Coder (an updated copy would lose the patch); the image build fails
+    if a new extension version no longer matches the patch.
+  - "Open Storybook in Browser" (globe icon) and the **Storybook** button of the workspace still work.
+  - VS Code's Simple Browser shows the same page once Storybook allows embedding.
 - If the extension's own launch fails, open the task terminal "npm run storybook" and look for a prompt or
   an error (the script uses `--ci` so there is no prompt).
