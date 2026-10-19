@@ -99,5 +99,12 @@ Fixture-backed stories need the database variables in the environment that start
   `.storybook/main.ts` keeps Storybook's host validation on and accepts `localhost`, `127.0.0.1`,
   `*.yair.link` (the Coder app hosts) and anything in `STORYBOOK_ALLOWED_HOSTS` (comma separated).
 - If a Storybook is already running on 6006, the extension's own launch takes the next free port.
-- If the preview shows "Loading" for long, open the task terminal "npm run storybook" and look for a
-  prompt or an error.
+- **Browser-based VS Code (code-server on Coder): the in-editor preview cannot work.** The extension
+  loads its preview from `http://localhost:<port>` inside the editor page, and in a browser that
+  `localhost` is the developer's own PC, not the workspace; desktop VS Code (Remote-SSH, Dev Containers)
+  maps the port and works. In code-server use the globe icon / "Story Explorer: Open Storybook in Browser"
+  (it opens `https://6006--main--<workspace>--<user>--coder.yair.link`, the user's own Storybook), or the
+  **Storybook** button of the Coder workspace. The story tree, "Go to Story Source" and code lenses work.
+  VS Code's Simple Browser is blocked the same way.
+- If the extension's own launch fails, open the task terminal "npm run storybook" and look for a prompt or
+  an error (the script uses `--ci` so there is no prompt).
