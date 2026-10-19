@@ -117,15 +117,15 @@ function portFree(port) {
 }
 for (const [port, name] of [
   [Number(process.env.WEB_PORT ?? 5173), 'web'],
-  [Number(process.env.API_PORT ?? 3000), 'API'],
+  [Number(process.env.PORT ?? process.env.API_PORT ?? 3000), 'API'],
   [6006, 'Storybook'],
 ]) {
   const free = await portFree(port);
   if (free === true) ok(`port ${port} free`, `(${name})`);
   else if (free === false)
-    fail(
-      `port ${port} (${name}) is in use`,
-      `stop the process using it (ss -ltnp | grep :${port})`,
+    // A busy dev port is normal when the app is already running, so it is a warning, not a failure.
+    console.log(
+      `WARN port ${port} (${name}) is in use (already running? see: lsof -iTCP:${port} -P -n)`,
     );
   else
     fail(
