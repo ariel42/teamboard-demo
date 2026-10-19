@@ -143,7 +143,7 @@ export function CardDialog({
         data-testid="card-dialog"
         tabIndex={-1}
       >
-        <header className="tb-dialog__header">
+        <div className="tb-dialog__header">
           <div>
             <h2 className="tb-dialog__heading" id={`${uid}-heading`}>
               Edit card
@@ -155,7 +155,7 @@ export function CardDialog({
           <Button variant="ghost" iconOnly aria-label="Close" onClick={onClose}>
             <X size={18} aria-hidden="true" />
           </Button>
-        </header>
+        </div>
 
         <div className="tb-dialog__body">
           <form className="tb-dialog__form" id={`${uid}-form`} onSubmit={submit}>
@@ -281,7 +281,7 @@ export function CardDialog({
           )}
         </div>
 
-        <footer className="tb-dialog__footer">
+        <div className="tb-dialog__footer">
           {confirmDelete ? (
             <div className="tb-dialog__confirm" role="group" aria-label="Confirm delete">
               <span>Delete this card?</span>
@@ -316,7 +316,7 @@ export function CardDialog({
               Save changes
             </Button>
           </div>
-        </footer>
+        </div>
       </div>
     </div>,
     document.body,

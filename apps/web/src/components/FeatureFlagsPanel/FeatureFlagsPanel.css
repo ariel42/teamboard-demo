@@ -115,8 +115,15 @@
 }
 
 @media (max-width: 640px) {
+  /* visually hidden, not display:none: the icon-only button keeps its accessible name */
   .tb-flags__trigger-text {
-    display: none;
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .tb-flags__trigger {
     padding-inline: 0;
