@@ -9,7 +9,7 @@ testing approaches and links to the stories that demonstrate them.
 ```sh
 npm ci
 npm run db:setup      # once: creates and seeds mocks.fixtures
-npm run storybook     # http://localhost:6006 (strict port, no browser opened, host 0.0.0.0)
+npm run storybook     # http://localhost:6006 (no browser opened, localhost only, no prompts)
 ```
 
 `DATABASE_URL` (and the optional `DB_SCHEMA_PREFIX`) must be set, as for the rest of the repo. The
@@ -90,7 +90,14 @@ Chromium: `npx playwright install --with-deps chromium` (see
 
 ## VS Code Story Explorer
 
-The recommended extension `joshbolduc.story-explorer` reads `http://localhost:6006/index.json`. It
-needs Storybook running (`npm run storybook`, port 6006) and, for fixture-backed stories, the
-database variables in the environment that started it. If Storybook runs elsewhere, change the
-extension's URL setting; no other configuration is needed.
+The recommended extension `joshbolduc.story-explorer` lists the stories from the Storybook it finds or
+starts itself (it runs `npm run storybook` and reads the port with `lsof`, so `lsof` must be installed).
+Fixture-backed stories need the database variables in the environment that started it.
+
+- The script uses `--ci` so Storybook never waits for input (a prompt in the extension's hidden task
+  terminal looks like an endless "Loading"), and no `--host`, so it listens on localhost only.
+  `.storybook/main.ts` keeps Storybook's host validation on and accepts `localhost`, `127.0.0.1`,
+  `*.yair.link` (the Coder app hosts) and anything in `STORYBOOK_ALLOWED_HOSTS` (comma separated).
+- If a Storybook is already running on 6006, the extension's own launch takes the next free port.
+- If the preview shows "Loading" for long, open the task terminal "npm run storybook" and look for a
+  prompt or an error.
