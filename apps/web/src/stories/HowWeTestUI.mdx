@@ -1,0 +1,137 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="How we test UI" />
+
+# How we test UI
+
+Every component in Teamboard has stories, and the stories are the test fixtures. One story file
+feeds five different checks, so a component is documented, explorable and tested from one place.
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>Catches</th>
+      <th>Runs in</th>
+      <th>Command</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1. Interaction (play functions)</td>
+      <td>Broken behavior: clicks, typing, keyboard, focus</td>
+      <td>Browser</td>
+      <td>
+        <code>npm run test:ui</code>
+      </td>
+    </tr>
+    <tr>
+      <td>2. Accessibility (axe)</td>
+      <td>Missing names, bad contrast, wrong ARIA, landmarks</td>
+      <td>Browser</td>
+      <td>
+        <code>npm run test:ui</code>
+      </td>
+    </tr>
+    <tr>
+      <td>3. Every story as a test</td>
+      <td>A story that throws, a missing fixture, a render bug</td>
+      <td>Headless Chromium</td>
+      <td>
+        <code>npm run test:ui</code>
+      </td>
+    </tr>
+    <tr>
+      <td>4. Portable stories (unit)</td>
+      <td>Logic and markup of pure-props stories, very fast</td>
+      <td>jsdom, no browser</td>
+      <td>
+        <code>npm test</code>
+      </td>
+    </tr>
+    <tr>
+      <td>5. Visual regression</td>
+      <td>Pixel changes. Not enabled, see below</td>
+      <td>-</td>
+      <td>-</td>
+    </tr>
+  </tbody>
+</table>
+
+## 1. Interaction tests with play functions
+
+A `play` function is a script that runs after the story renders, using `userEvent`, `within`,
+`expect` and `step` from `storybook/test`. You can watch it step by step in the Interactions panel.
+
+- Add a card from a column: [Column, add card flow](?path=/story/compositions-column--add-card-flow)
+  and [Board, add card](?path=/story/compositions-board--add-card-in-column)
+- Move a card with the keyboard (Space, arrows, Space): [Board, keyboard move](?path=/story/compositions-board--keyboard-move)
+- Open a card and add a comment: [CardDialog, add comment](?path=/story/compositions-carddialog--add-comment)
+  and, through the fake API, [BoardPage, open card and comment](?path=/story/pages-boardpage--open-card-and-comment)
+- Toggle a feature flag: [FeatureFlagsPanel](?path=/story/components-featureflagspanel--toggle-and-escape)
+  and [BoardPage, toggle flag](?path=/story/pages-boardpage--toggle-flag-in-header)
+- Dialog focus trap and Escape: [CardDialog, focus trap and Escape](?path=/story/compositions-carddialog--focus-trap-and-escape)
+- Validation, confirm-before-delete, retry: [validation errors](?path=/story/compositions-carddialog--validation-errors),
+  [delete needs confirmation](?path=/story/compositions-carddialog--delete-needs-confirmation),
+  [error with retry](?path=/story/pages-boardpage--error-with-retry)
+
+**Run it:** open the story and watch the Interactions panel, or `npm run test:ui`.
+
+## 2. Accessibility
+
+`@storybook/addon-a11y` runs axe on every story. In `.storybook/preview.tsx` we set
+`parameters.a11y.test = 'error'`, so a violation fails the test run instead of showing a warning.
+This has already found and fixed real problems: low contrast on secondary text, a loading region without a role,
+a toolbar button that lost its name on mobile, and a dialog header exposed as a second page banner.
+
+Documented exceptions (the only ones):
+
+- `region` is off for every story. Stories render one component in isolation, and "all content inside a landmark"
+  only makes sense for a whole page. The page stories cover the real landmarks.
+- [TaskCard, dragging](?path=/story/components-taskcard--dragging) turns off `color-contrast`. The dragged
+  placeholder is a deliberately faded ghost (40% opacity), and it is not read as content.
+- [Gallery](?path=/story/layout-gallery--themes-and-directions) turns off `landmark-unique`, because it shows
+  the same board four times on one page.
+
+**Run it:** the Accessibility panel shows the result live. `npm run test:ui` fails on any violation.
+
+## 3. All stories as Vitest browser tests
+
+`@storybook/addon-vitest` turns every story into a Vitest test running in headless Chromium (Playwright):
+it renders the story, runs the play function, then the a11y check. Stories that need a database fixture fail
+when the fixture cannot be loaded (in the browser you see an error panel instead).
+
+**Run it:** `npm run test:ui` from the repo root or `apps/web`. It needs Postgres (`npm run db:setup` once)
+and `npx playwright install chromium`. It also runs in CI.
+
+## 4. Portable stories in the unit tests
+
+`composeStories` from `@storybook/react-vite` turns a story file into plain React components, so the
+browser-free unit suite can reuse them. See `src/components/TaskCard/TaskCard.stories.test.tsx`: it renders
+stories in jsdom and asserts on the output. It needs no database, no browser and no Storybook server, which
+is why it is part of the fast `npm test`. Only pure-props stories qualify; stories that read DB fixtures stay
+in the browser run.
+
+**Run it:** `npm test`
+
+## 5. Visual regression: not enabled
+
+Pixel snapshots are only useful when they are deterministic. Here they would not be, yet:
+fonts and anti-aliasing differ between a laptop and the CI image, the board shows relative dates
+("in 2 days") that follow the real clock, and the fixtures come from a mutable database table.
+Baselines would flap and teach people to ignore failures. The usual fix is a hosted service that renders
+in a pinned browser (Chromatic) with a frozen clock; the stories are ready for it, because they are
+already isolated and parameterised.
+
+## Where the data comes from
+
+Board stories load rows of the `mocks.fixtures` table from Postgres through the Storybook dev server
+(`/__fixtures/typical`, and so on). Edit a row, reload the story, and it changes. Page stories
+serve the same payloads through MSW, with a stateful fake API so moves, new cards, comments and flags work.
+In a static `build-storybook` the fixtures are baked into `__fixtures.json`, so the built Storybook needs no database.
+
+## Toolbar
+
+Use **Theme** and **Direction** in the toolbar to switch light/dark and left-to-right/right-to-left (Hebrew)
+for any story. The [Gallery](?path=/story/layout-gallery--themes-and-directions) shows all combinations at once,
+and [AppShell](?path=/story/layout-appshell--mobile-375) is shown at 375, 768 and 1440 pixels.
