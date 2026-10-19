@@ -19,7 +19,7 @@ export function CommentList({ comments, loading = false, error = null, now }: Co
   }
   if (loading) {
     return (
-      <div className="tb-comment-list" aria-busy="true" aria-label="Loading comments">
+      <div className="tb-comment-list" role="status" aria-busy="true" aria-label="Loading comments">
         <div className="tb-skeleton-line" />
         <div className="tb-skeleton-line tb-skeleton-line--short" />
       </div>
