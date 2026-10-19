@@ -1,0 +1,101 @@
+.tb-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-block-size: var(--control-height);
+  padding-inline: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  transition:
+    background-color var(--duration) var(--ease),
+    border-color var(--duration) var(--ease),
+    box-shadow var(--duration) var(--ease),
+    transform var(--duration) var(--ease);
+}
+
+.tb-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.tb-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tb-button--sm {
+  min-block-size: var(--control-height-sm);
+  padding-inline: var(--space-1);
+}
+
+.tb-button--lg {
+  min-block-size: var(--control-height-lg);
+  padding-inline: var(--space-3);
+  font-size: var(--text-md);
+}
+
+.tb-button--icon {
+  padding-inline: 0;
+  inline-size: var(--control-height);
+}
+.tb-button--icon.tb-button--sm {
+  inline-size: var(--control-height-sm);
+}
+.tb-button--icon.tb-button--lg {
+  inline-size: var(--control-height-lg);
+}
+
+.tb-button--primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: var(--shadow-1);
+}
+.tb-button--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.tb-button--primary:active:not(:disabled) {
+  background: var(--accent-active);
+}
+
+.tb-button--secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-1);
+}
+.tb-button--secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.tb-button--ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+.tb-button--ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.tb-button--danger {
+  background: var(--danger);
+  color: var(--danger-fg);
+  box-shadow: var(--shadow-1);
+}
+.tb-button--danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.tb-button__spinner {
+  animation: tb-spin 800ms linear infinite;
+}
+
+@keyframes tb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

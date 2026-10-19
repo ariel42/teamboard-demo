@@ -1,0 +1,27 @@
+.tb-comment {
+  display: flex;
+  gap: 12px;
+}
+.tb-comment__content {
+  flex: 1;
+  min-inline-size: 0;
+}
+.tb-comment__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.tb-comment__author {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.tb-comment__time {
+  font-size: var(--text-xs);
+  color: var(--text-subtle);
+}
+.tb-comment__body {
+  margin-block-start: 2px;
+  font-size: var(--text-md);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

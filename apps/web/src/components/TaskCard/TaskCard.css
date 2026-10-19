@@ -1,0 +1,105 @@
+.tb-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+  touch-action: manipulation;
+  transition:
+    box-shadow var(--duration) var(--ease),
+    border-color var(--duration) var(--ease),
+    transform var(--duration) var(--ease),
+    opacity var(--duration) var(--ease);
+}
+
+.tb-card:hover {
+  box-shadow: var(--shadow-2);
+  border-color: var(--border-strong);
+}
+
+.tb-card:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.tb-card--compact {
+  padding: var(--space-1) 12px;
+}
+
+.tb-card--selected {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    var(--shadow-2);
+}
+
+/* The in-place ghost while the card is being dragged. */
+.tb-card--dragging {
+  opacity: 0.4;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+/* The copy that follows the pointer. */
+.tb-card--overlay {
+  opacity: 1;
+  cursor: grabbing;
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lift);
+  transform: rotate(2deg) scale(1.03);
+}
+
+.tb-card__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tb-card__main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.tb-card__title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.tb-card__compact-meta {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.tb-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tb-card__comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.tb-card__assignee {
+  margin-inline-start: auto;
+  display: inline-flex;
+}

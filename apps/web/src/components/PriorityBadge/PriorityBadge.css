@@ -1,0 +1,30 @@
+.tb-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.tb-priority--icon {
+  padding: 4px;
+}
+.tb-priority--low {
+  background: var(--priority-low-bg);
+  color: var(--priority-low-fg);
+}
+.tb-priority--medium {
+  background: var(--priority-medium-bg);
+  color: var(--priority-medium-fg);
+}
+.tb-priority--high {
+  background: var(--priority-high-bg);
+  color: var(--priority-high-fg);
+}
+.tb-priority--urgent {
+  background: var(--priority-urgent-bg);
+  color: var(--priority-urgent-fg);
+}

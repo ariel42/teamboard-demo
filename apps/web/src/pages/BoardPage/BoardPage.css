@@ -1,0 +1,45 @@
+.tb-board-page {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.tb-board-page__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-1);
+}
+
+.tb-board-page__title {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight);
+}
+
+.tb-board-page__description,
+.tb-board-page__meta {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.tb-board-page__banner {
+  margin: var(--space-1) var(--space-3) 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 720px) {
+  .tb-board-page__header {
+    padding-inline: var(--space-2);
+  }
+  .tb-board-page__banner {
+    margin-inline: var(--space-2);
+  }
+}

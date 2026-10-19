@@ -1,0 +1,54 @@
+.tb-skeleton {
+  display: block;
+  inline-size: 100%;
+  block-size: 1em;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--surface-hover) 25%,
+    var(--border) 50%,
+    var(--surface-hover) 75%
+  );
+  background-size: 200% 100%;
+  animation: tb-shimmer 1.4s linear infinite;
+}
+
+@keyframes tb-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-skeleton {
+    animation: none;
+  }
+}
+
+.tb-board-skeleton {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  overflow: hidden;
+}
+
+.tb-board-skeleton__column {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  inline-size: var(--column-width);
+  padding: var(--space-2);
+  border-radius: var(--radius-lg);
+  background: var(--surface-column);
+}
+
+.tb-board-skeleton__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}

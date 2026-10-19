@@ -1,0 +1,39 @@
+.tb-comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.tb-comment-form__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.tb-comment-form__as {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.tb-comment-form__input {
+  inline-size: 100%;
+  padding: 10px 12px;
+  resize: vertical;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  line-height: var(--leading-normal);
+  transition: border-color var(--duration) var(--ease);
+}
+.tb-comment-form__input:focus-visible {
+  border-color: var(--focus-ring);
+  outline-offset: 0;
+}
+.tb-comment-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tb-comment-note {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.tb-comment-note--error {
+  color: var(--danger-text);
+}

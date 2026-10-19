@@ -1,0 +1,19 @@
+.tb-env {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-inline-size: 100%;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: oklch(var(--label-bg-l) var(--label-bg-c) var(--label-hue, 260));
+  color: oklch(var(--label-fg-l) var(--label-fg-c) var(--label-hue, 260));
+  border: 1px solid oklch(var(--label-fg-l) var(--label-fg-c) var(--label-hue, 260) / 0.3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tb-env__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

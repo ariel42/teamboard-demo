@@ -1,0 +1,44 @@
+.tb-theme {
+  display: inline-flex;
+  margin: 0;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.tb-theme__option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--duration) var(--ease),
+    color var(--duration) var(--ease);
+}
+.tb-theme__option:hover {
+  color: var(--text);
+}
+.tb-theme__option:has(:checked) {
+  background: var(--surface);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-1);
+}
+.tb-theme__option:has(:focus-visible) {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.tb-theme__input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}

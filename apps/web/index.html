@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" dir="ltr" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Teamboard</title>
+    <script>
+      // Apply the stored theme and direction before first paint (avoids a flash).
+      (function () {
+        try {
+          var root = document.documentElement;
+          var pref = localStorage.getItem('teamboard.theme');
+          if (pref !== 'light' && pref !== 'dark') pref = 'system';
+          var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          root.setAttribute('data-theme', pref === 'system' ? (dark ? 'dark' : 'light') : pref);
+          var dir =
+            new URLSearchParams(location.search).get('dir') || root.getAttribute('data-dir');
+          if (dir === 'rtl') {
+            root.setAttribute('dir', 'rtl');
+            root.setAttribute('lang', 'he');
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

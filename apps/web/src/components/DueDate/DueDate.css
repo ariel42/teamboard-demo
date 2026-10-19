@@ -1,0 +1,22 @@
+.tb-due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.tb-due--soon,
+.tb-due--today {
+  color: var(--warning-text);
+  background: var(--warning-soft);
+}
+.tb-due--overdue {
+  color: var(--danger-text);
+  background: var(--danger-soft);
+  font-weight: 600;
+}
