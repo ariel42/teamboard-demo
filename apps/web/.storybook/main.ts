@@ -9,9 +9,11 @@ function allowedHosts(): string[] {
   return ['localhost', '127.0.0.1', '.yair.link', ...extra];
 }
 
-// Storybook's dev server lets only localhost pages embed it. Coder's browser VS Code embeds it from its own
-// address (the Story Explorer preview), so there, and only there, the embedding check is relaxed.
-const embeddedInBrowserIde = process.env.DEVENV_KIND === 'coder';
+// Storybook's dev server lets only pages on localhost embed it, and it checks every ancestor frame. VS Code's
+// Story Explorer preview sits inside a VS Code webview (vscode-webview:// on desktop, the editor's own address
+// in Coder's browser VS Code), so that check blocks it. In the managed dev environments (DEVENV_KIND is set by
+// mise, Dev Containers and Coder) the embedding check is relaxed; plain `npm run storybook` elsewhere keeps it.
+const embeddedInIde = Boolean(process.env.DEVENV_KIND);
 
 const config: StorybookConfig = {
   stories: ['../src/**/*.mdx', '../src/**/*.stories.@(ts|tsx)'],
@@ -21,7 +23,7 @@ const config: StorybookConfig = {
   // Host validation stays on. Besides localhost it accepts the reverse-proxy domains of the dev environments
   // (Coder serves apps as <app>--<agent>--<workspace>--<user>--coder.yair.link); add more with a comma list.
   core: { disableTelemetry: true, allowedHosts: allowedHosts() },
-  security: { insecureRemoteIframeEmbed: embeddedInBrowserIde, insecureIframeMessaging: embeddedInBrowserIde },
+  security: { insecureRemoteIframeEmbed: embeddedInIde, insecureIframeMessaging: embeddedInIde },
   typescript: { reactDocgen: 'react-docgen-typescript' },
   async viteFinal(viteConfig, { configType }) {
     const { mergeConfig } = await import('vite');

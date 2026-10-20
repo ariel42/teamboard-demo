@@ -105,8 +105,8 @@ Fixture-backed stories need the database variables in the environment that start
   repo): it asks VS Code for the externally reachable address, which code-server turns into the Coder port URL
   (`<port>--main--<workspace>--<user>--coder.yair.link`, owner only). Storybook must allow being embedded from
   there: `.storybook/main.ts` sets `security.insecureRemoteIframeEmbed` and `insecureIframeMessaging` when
-  `DEVENV_KIND` is `coder`, and not elsewhere. Open a preview with the **Preview Story** code lens above a
-  story. Desktop VS Code (Remote-SSH, Dev Containers) needs no patch: it maps the port itself.
+  `DEVENV_KIND` is set (mise, Dev Containers and Coder: all hosts of the editor preview; Storybook checks every ancestor frame, and a VS Code webview is never on localhost), and not in a plain `npm run storybook` elsewhere. Open a preview with the **Preview Story** code lens above a
+  story. Desktop VS Code (also Remote-SSH and Dev Containers) needs no extension patch, only that Storybook setting.
   - The extension's auto-update is off in Coder (an updated copy would lose the patch); the image build fails
     if a new extension version no longer matches the patch.
   - "Open Storybook in Browser" (globe icon) and the **Storybook** button of the workspace still work.
