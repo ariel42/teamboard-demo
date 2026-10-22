@@ -23,3 +23,11 @@ export {
   seedStorybook,
 } from './seed/storybook.ts';
 export type { ScenarioResult } from './seed/storybook.ts';
+export {
+  LiveScenarioError,
+  SEED_HINT,
+  findScenarioBoardId,
+  liveSchemas,
+  payloadVersion,
+  readLiveScenario,
+} from './seed/storybook-live.ts';

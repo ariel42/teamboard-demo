@@ -3,7 +3,10 @@
  *
  *   dev server        GET /__fixtures          -> [{ name, description }]
  *                     GET /__fixtures/:name    -> BoardPayload (validated with boardPayloadSchema)
- *   storybook build   the same data is pre-rendered into /__fixtures.json (no DB needed to serve it)
+ *                     GET /__fixtures-live/:name          -> BoardPayload built live from sb_app (the mirror)
+ *                     GET /__fixtures-live/:name/version  -> { version } (md5 of that payload)
+ *   storybook build   the same data is pre-rendered into /__fixtures.json (no DB needed to serve it);
+ *                     the live endpoints exist only in the dev server
  *
  * Connection: DATABASE_URL (required) and the optional DB_SCHEMA_PREFIX, like the rest of the repo.
  * Failures answer with HTTP 503 and `{ error }` so the story can show a readable error panel.
@@ -11,7 +14,16 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import pg from 'pg';
 import type { Plugin } from 'vite';
-import { boardPayloadSchema, resolveSchemas } from '@teamboard/db';
+import {
+  boardPayloadSchema,
+  createPool,
+  liveSchemas,
+  LiveScenarioError,
+  payloadVersion,
+  readLiveScenario,
+  resolveSchemas,
+} from '@teamboard/db';
+import type { Pool } from '@teamboard/db';
 import type { BoardPayload } from '@teamboard/db';
 
 export interface FixtureInfo {
@@ -108,15 +120,63 @@ export async function readAllFixtures(): Promise<StaticFixtures> {
   });
 }
 
-function sendJson(res: ServerResponse, status: number, body: unknown) {
+function sendJson(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+) {
   res.statusCode = status;
+  for (const [k, v] of Object.entries(headers)) res.setHeader(k, v);
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.end(JSON.stringify(body));
 }
 
+let livePool: Pool | undefined;
+
+/** One small pool for the live endpoints, created on first use and closed with the dev server. */
+function getLivePool(): Pool {
+  if (!process.env.DATABASE_URL) {
+    throw new LiveScenarioError('DATABASE_URL is not set, so sb_app cannot be read.');
+  }
+  return (livePool ??= createPool({ max: 2 }));
+}
+
+/**
+ * `/__fixtures-live/:name` and `/__fixtures-live/:name/version`. Read per request, never cached.
+ * Returns false when the path is not a live path.
+ */
+export async function handleLive(
+  pathname: string,
+  res: ServerResponse,
+  pool: () => Pool = getLivePool,
+): Promise<boolean> {
+  const match = /^\/__fixtures-live\/([^/]+)(\/version)?\/?$/.exec(pathname);
+  if (!match) return false;
+  try {
+    const name = decodeURIComponent(match[1] as string);
+    const schemas = liveSchemas();
+    const payload = await readLiveScenario(pool(), schemas, name);
+    const version = payloadVersion(payload);
+    // The payload carries its own version and schema name, so the preview has no load/poll race.
+    sendJson(
+      res,
+      200,
+      match[2] ? { version } : payload,
+      match[2] ? {} : { 'X-Live-Version': version, 'X-Live-Schema': schemas.raw.app },
+    );
+  } catch (err) {
+    sendJson(res, err instanceof LiveScenarioError ? err.status : 500, {
+      error: (err as Error).message,
+    });
+  }
+  return true;
+}
+
 async function handle(req: IncomingMessage, res: ServerResponse, next: () => void) {
   const url = new URL(req.url ?? '/', 'http://localhost');
+  if (req.method === 'GET' && (await handleLive(url.pathname, res))) return;
   if (req.method !== 'GET' || !/^\/__fixtures(\/|$)/.test(url.pathname)) return next();
   try {
     const name = decodeURIComponent(url.pathname.slice('/__fixtures'.length).replace(/^\//, ''));
@@ -138,6 +198,10 @@ export function fixturesPlugin(mode: 'serve' | 'build'): Plugin {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         void handle(req, res, next);
+      });
+      server.httpServer?.once('close', () => {
+        void livePool?.end().catch(() => {});
+        livePool = undefined;
       });
     },
     async generateBundle() {

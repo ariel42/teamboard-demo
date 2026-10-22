@@ -8,9 +8,11 @@ import { applyTheme, storeThemePreference } from '../src/lib/theme';
 import {
   DATA_SOURCES,
   DEFAULT_DATA_SOURCE,
-  LiveNotice,
+  LiveBadge,
+  LiveRefresh,
   resolveDataSource,
 } from '../src/stories/support/dataSource';
+import type { LiveInfo } from '../src/stories/support/fixtures';
 import { FixtureErrorPanel } from '../src/stories/support/FixtureErrorPanel';
 import { fixtureLoader } from '../src/stories/support/fixtures';
 import { createMockApi } from '../src/stories/support/mockApi';
@@ -42,13 +44,31 @@ const withFixtureError: Decorator = (Story, context) => {
   return <FixtureErrorPanel message={error} />;
 };
 
-/** Toolbar "Data": with "Live schema" the live path is not built yet, so only a notice is added. */
-const withDataSourceNotice: Decorator = (Story, context) => {
+/**
+ * Toolbar "Data": with "Live schema" a small badge shows where the data came from, and (dev server,
+ * story view only) the scenario is polled so an edit in sb_app reloads the preview. Not used in
+ * the Vitest run, where a reload would only break the test.
+ */
+const withLiveData: Decorator = (Story, context) => {
   if (resolveDataSource(context.globals.dataSource) !== 'live') return <Story />;
+  const live = context.loaded.live as LiveInfo | undefined;
+  const poll =
+    live?.state === 'ok' &&
+    live.version !== undefined &&
+    context.viewMode === 'story' &&
+    !import.meta.env.VITEST;
   return (
     <>
       <Story />
-      <LiveNotice />
+      <LiveBadge live={live} />
+      {poll ? (
+        <LiveRefresh
+          key={context.id}
+          name={live.name}
+          version={live.version as string}
+          globals={context.globals}
+        />
+      ) : null}
     </>
   );
 };
@@ -81,7 +101,8 @@ const preview: Preview = {
       },
     },
     dataSource: {
-      description: 'Where board data comes from (Live schema is not built yet)',
+      description:
+        'Where board data comes from: fixtures (mocks.fixtures) or the live sb_app schema',
       toolbar: {
         title: 'Data',
         icon: 'database',
@@ -94,13 +115,15 @@ const preview: Preview = {
     },
   },
   initialGlobals: { theme: 'light', dir: 'ltr', dataSource: DEFAULT_DATA_SOURCE },
-  decorators: [withDataSourceNotice, withFixtureError, withDirection, withTheme],
+  decorators: [withLiveData, withFixtureError, withDirection, withTheme],
   loaders: [
     mswLoader(getWorker),
     // parameters.fixture = 'typical' loads that mocks.fixtures row into context.loaded.fixture
-    async ({ parameters }) => {
+    // With the toolbar "Data: Live schema" the board is read from sb_app instead (see dataSource.tsx)
+    async ({ parameters, globals }) => {
       const name = parameters.fixture as string | undefined;
-      return name ? await fixtureLoader(name) : {};
+      const source = resolveDataSource(globals.dataSource);
+      return name ? await fixtureLoader(name, source) : {};
     },
   ],
   beforeEach: async ({ parameters, loaded }) => {

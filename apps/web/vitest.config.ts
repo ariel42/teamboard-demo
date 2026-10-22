@@ -8,7 +8,7 @@ import { defineConfig } from 'vitest/config';
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Two projects:
-//   unit       jsdom, no browser, no database. This is what `npm test` runs.
+//   unit       jsdom, no browser. Needs the database only for liveEndpoint.test.ts. This is what `npm test` runs.
 //   storybook  every story as a browser test in headless Chromium (needs the fixtures DB).
 //              This is what `npm run test:ui` runs.
 export default defineConfig({

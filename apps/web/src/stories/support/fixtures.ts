@@ -66,13 +66,93 @@ export async function listFixtures(): Promise<FixtureInfo[]> {
   return fetchJson<FixtureInfo[]>('__fixtures');
 }
 
+/** What the toolbar "Data: Live schema" mode did for a story (absent in the Fixtures mode). */
+export interface LiveInfo {
+  /** ok: payload came from sb_app. error: the endpoint failed, fixtures are shown instead.
+   *  static: built Storybook without a dev server, fixtures are shown. */
+  state: 'ok' | 'error' | 'static';
+  /** Scenario (fixture) name; the key for /__fixtures-live/:name. */
+  name: string;
+  /** Schema the payload was read from, e.g. sb_app. */
+  schema: string;
+  /** md5 of the payload as served; auto-refresh polls /version and reloads when it changes. */
+  version?: string;
+  error?: string;
+}
+
 export interface LoadedFixture {
   fixture?: BoardPayload;
   fixtureError?: string;
+  live?: LiveInfo;
 }
 
-/** Story `loaders` result: never throws, so a missing DB renders an error panel instead. */
-export async function fixtureLoader(name: string): Promise<LoadedFixture> {
+/** Live schema of the real mirror; the endpoint reports the actual one (tests use a throwaway). */
+export const LIVE_SCHEMA = 'sb_app';
+
+/** The scenario payload built live from sb_app, with the version header of that same read. */
+export async function loadLiveFixture(
+  name: string,
+): Promise<{ fixture: BoardPayload; version?: string; schema: string }> {
+  const url = `__fixtures-live/${encodeURIComponent(name)}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { cache: 'no-store' });
+  } catch {
+    throw new Error(`Cannot reach the Storybook dev server at ${url}.`);
+  }
+  const body = (await res.json().catch(() => null)) as BoardPayload | { error?: string } | null;
+  if (!res.ok) {
+    const message =
+      body && typeof body === 'object' && 'error' in body && body.error
+        ? body.error
+        : `Request failed with status ${res.status}`;
+    throw new Error(message);
+  }
+  return {
+    fixture: body as BoardPayload,
+    version: res.headers.get('X-Live-Version') ?? undefined,
+    schema: res.headers.get('X-Live-Schema') ?? LIVE_SCHEMA,
+  };
+}
+
+/** Current version of the live payload (cheap md5 from the dev server). */
+export async function fetchLiveVersion(name: string): Promise<string> {
+  const res = await fetch(`__fixtures-live/${encodeURIComponent(name)}/version`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Version request failed with status ${res.status}`);
+  return ((await res.json()) as { version: string }).version;
+}
+
+/**
+ * Story `loaders` result: never throws, so a missing DB renders an error panel instead.
+ * With `source: 'live'` it reads the scenario from sb_app instead and falls back to the fixture
+ * (with `live.state` 'error' or 'static') when that is not possible.
+ */
+export async function fixtureLoader(
+  name: string,
+  source: 'fixtures' | 'live' = 'fixtures',
+): Promise<LoadedFixture> {
+  if (source === 'live') {
+    if (__TB_FIXTURES_STATIC__) {
+      return {
+        ...(await fixtureLoader(name)),
+        live: { state: 'static', name, schema: LIVE_SCHEMA },
+      };
+    }
+    try {
+      const live = await loadLiveFixture(name);
+      return {
+        fixture: live.fixture,
+        live: { state: 'ok', name, schema: live.schema, version: live.version },
+      };
+    } catch (error) {
+      return {
+        ...(await fixtureLoader(name)),
+        live: { state: 'error', name, schema: LIVE_SCHEMA, error: (error as Error).message },
+      };
+    }
+  }
   try {
     return { fixture: await loadFixture(name) };
   } catch (error) {

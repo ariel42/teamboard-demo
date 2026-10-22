@@ -52,9 +52,35 @@ Postgres mocks.fixtures --pg--> Vite middleware --zod--> GET /__fixtures/:name -
 
 ### Toolbar "Data" switch
 
-The toolbar has a "Data" switch: "Fixtures" (the default) or "Live schema". Fixtures is everything
-described here. Live schema (reading real `sb_app` / `sb_config` tables) is coming; for now it still
-loads the fixtures and only shows a small notice in the corner of the story.
+The toolbar has a "Data" switch: "Fixtures" (the default) or "Live schema".
+
+- **Fixtures** is everything described above. No extra requests, no polling.
+- **Live schema** builds the board of the story's fixture (`typical`, `empty`, ...) from the real
+  `sb_app` / `sb_config` tables on every load, through `GET /__fixtures-live/:name`
+  (`Cache-Control: no-store`). A green badge "Live: sb_app" shows in the corner of the story. Page
+  stories (MSW) get the same live board as their starting data; writes in the fake API stay in the
+  browser and never reach `sb_app`.
+- **Edit with SQL, see it in the story.** The story reloads by itself (about 2 s) after the data
+  changes; it polls `GET /__fixtures-live/:name/version` (an md5 of the payload) and reloads the
+  preview when it changes, keeping the toolbar choices. Polling stops when you switch back to
+  Fixtures or open another story.
+
+  ```sql
+  -- rename the first card of the "typical" scenario
+  update sb_app.cards set title = 'Edited in SQL'
+   where id = (select min(c.id) from sb_app.cards c
+                 join sb_app.columns col on col.id = c.column_id
+                where col.board_id = (select (value #>> '{}')::int from sb_config.settings
+                                       where key = 'storybook_scenario_typical'));
+  ```
+
+- **Reset** your edits with `npm run db:reset-storybook`.
+- If `sb_` is not seeded or the database is down, the endpoint answers 503 with a hint
+  (`npm run db:seed-storybook`). The story then shows the fixture and the badge turns red with the
+  message.
+- In the static build the badge says "Live schema needs the dev server" and the fixtures are used.
+- Known gaps: the live payload lists every user in `sb_app`, and ids are the real serial ids (not the
+  fixture ids).
 
 ### The `sb_app` mirror
 
@@ -99,7 +125,8 @@ runner the same situation throws, so tests fail loudly instead of passing on an 
 `npm run build-storybook` pre-renders all fixtures (reading the DB at build time) into
 `storybook-static/__fixtures.json`, and the client reads that file instead of `/__fixtures/...`.
 The built site therefore works from any static host with no database. Fixture changes need a
-rebuild. The build fails if `DATABASE_URL` is missing or a fixture is invalid.
+rebuild. The build fails if `DATABASE_URL` is missing or a fixture is invalid. Live schema mode is not
+baked in: it needs the dev server.
 
 ## Tests
 
