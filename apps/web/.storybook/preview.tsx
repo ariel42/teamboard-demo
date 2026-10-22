@@ -5,6 +5,12 @@ import '../src/styles/tokens.css';
 import '../src/styles/global.css';
 import { applyDirection } from '../src/lib/direction';
 import { applyTheme, storeThemePreference } from '../src/lib/theme';
+import {
+  DATA_SOURCES,
+  DEFAULT_DATA_SOURCE,
+  LiveNotice,
+  resolveDataSource,
+} from '../src/stories/support/dataSource';
 import { FixtureErrorPanel } from '../src/stories/support/FixtureErrorPanel';
 import { fixtureLoader } from '../src/stories/support/fixtures';
 import { createMockApi } from '../src/stories/support/mockApi';
@@ -36,6 +42,17 @@ const withFixtureError: Decorator = (Story, context) => {
   return <FixtureErrorPanel message={error} />;
 };
 
+/** Toolbar "Data": with "Live schema" the live path is not built yet, so only a notice is added. */
+const withDataSourceNotice: Decorator = (Story, context) => {
+  if (resolveDataSource(context.globals.dataSource) !== 'live') return <Story />;
+  return (
+    <>
+      <Story />
+      <LiveNotice />
+    </>
+  );
+};
+
 const preview: Preview = {
   tags: ['autodocs'],
   globalTypes: {
@@ -63,9 +80,21 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    dataSource: {
+      description: 'Where board data comes from (Live schema is not built yet)',
+      toolbar: {
+        title: 'Data',
+        icon: 'database',
+        items: [
+          { value: DATA_SOURCES[0], title: 'Fixtures' },
+          { value: DATA_SOURCES[1], title: 'Live schema' },
+        ],
+        dynamicTitle: true,
+      },
+    },
   },
-  initialGlobals: { theme: 'light', dir: 'ltr' },
-  decorators: [withFixtureError, withDirection, withTheme],
+  initialGlobals: { theme: 'light', dir: 'ltr', dataSource: DEFAULT_DATA_SOURCE },
+  decorators: [withDataSourceNotice, withFixtureError, withDirection, withTheme],
   loaders: [
     mswLoader(getWorker),
     // parameters.fixture = 'typical' loads that mocks.fixtures row into context.loaded.fixture

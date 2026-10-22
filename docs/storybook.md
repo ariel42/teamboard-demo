@@ -50,6 +50,12 @@ Postgres mocks.fixtures --pg--> Vite middleware --zod--> GET /__fixtures/:name -
 - Page stories use MSW instead: `parameters.mockApi` installs a stateful fake API (moves, new
   cards, comments and flags work) built from the same fixtures.
 
+### Toolbar "Data" switch
+
+The toolbar has a "Data" switch: "Fixtures" (the default) or "Live schema". Fixtures is everything
+described here. Live schema (reading real `sb_app` / `sb_config` tables) is coming; for now it still
+loads the fixtures and only shows a small notice in the corner of the story.
+
 ### Edit a fixture and see it in the story
 
 ```sql
