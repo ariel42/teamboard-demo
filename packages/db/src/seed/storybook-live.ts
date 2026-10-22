@@ -88,3 +88,42 @@ export async function readLiveScenario(
 export function payloadVersion(payload: BoardPayload): string {
   return createHash('md5').update(JSON.stringify(payload)).digest('hex');
 }
+
+export interface LiveResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: unknown;
+}
+
+/**
+ * The whole answer for `/__fixtures-live/:name` and `/__fixtures-live/:name/version`, or undefined
+ * when the path is not a live path. The dev server only writes it to the socket.
+ * The payload response carries its own version and schema name, so the preview has no load/poll race.
+ */
+export async function liveResponse(
+  pathname: string,
+  pool: () => Pool,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<LiveResponse | undefined> {
+  const match = /^\/__fixtures-live\/([^/]+)(\/version)?\/?$/.exec(pathname);
+  if (!match) return undefined;
+  try {
+    const name = decodeURIComponent(match[1] as string);
+    const schemas = liveSchemas(env);
+    const payload = await readLiveScenario(pool(), schemas, name);
+    const version = payloadVersion(payload);
+    return match[2]
+      ? { status: 200, headers: {}, body: { version } }
+      : {
+          status: 200,
+          headers: { 'X-Live-Version': version, 'X-Live-Schema': schemas.raw.app },
+          body: payload,
+        };
+  } catch (err) {
+    return {
+      status: err instanceof LiveScenarioError ? err.status : 500,
+      headers: {},
+      body: { error: (err as Error).message },
+    };
+  }
+}

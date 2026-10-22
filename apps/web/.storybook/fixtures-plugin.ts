@@ -17,10 +17,8 @@ import type { Plugin } from 'vite';
 import {
   boardPayloadSchema,
   createPool,
-  liveSchemas,
+  liveResponse,
   LiveScenarioError,
-  payloadVersion,
-  readLiveScenario,
   resolveSchemas,
 } from '@teamboard/db';
 import type { Pool } from '@teamboard/db';
@@ -143,34 +141,11 @@ function getLivePool(): Pool {
   return (livePool ??= createPool({ max: 2 }));
 }
 
-/**
- * `/__fixtures-live/:name` and `/__fixtures-live/:name/version`. Read per request, never cached.
- * Returns false when the path is not a live path.
- */
-export async function handleLive(
-  pathname: string,
-  res: ServerResponse,
-  pool: () => Pool = getLivePool,
-): Promise<boolean> {
-  const match = /^\/__fixtures-live\/([^/]+)(\/version)?\/?$/.exec(pathname);
-  if (!match) return false;
-  try {
-    const name = decodeURIComponent(match[1] as string);
-    const schemas = liveSchemas();
-    const payload = await readLiveScenario(pool(), schemas, name);
-    const version = payloadVersion(payload);
-    // The payload carries its own version and schema name, so the preview has no load/poll race.
-    sendJson(
-      res,
-      200,
-      match[2] ? { version } : payload,
-      match[2] ? {} : { 'X-Live-Version': version, 'X-Live-Schema': schemas.raw.app },
-    );
-  } catch (err) {
-    sendJson(res, err instanceof LiveScenarioError ? err.status : 500, {
-      error: (err as Error).message,
-    });
-  }
+/** `/__fixtures-live/...`: read per request, never cached. False when the path is not a live path. */
+async function handleLive(pathname: string, res: ServerResponse): Promise<boolean> {
+  const live = await liveResponse(pathname, getLivePool);
+  if (!live) return false;
+  sendJson(res, live.status, live.body, live.headers);
   return true;
 }
 

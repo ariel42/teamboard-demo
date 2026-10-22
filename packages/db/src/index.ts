@@ -27,6 +27,7 @@ export {
   LiveScenarioError,
   SEED_HINT,
   findScenarioBoardId,
+  liveResponse,
   liveSchemas,
   payloadVersion,
   readLiveScenario,
