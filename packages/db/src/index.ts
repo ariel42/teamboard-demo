@@ -15,3 +15,10 @@ export {
   seedStarterBoard,
 } from './seed/seed.ts';
 export type { SeedResult } from './seed/seed.ts';
+export {
+  STORYBOOK_PREFIX,
+  resetStorybook,
+  scenarioSettingKey,
+  seedStorybook,
+} from './seed/storybook.ts';
+export type { ScenarioResult } from './seed/storybook.ts';

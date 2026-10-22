@@ -4,10 +4,14 @@ import { resolveSchemas } from '../schema-names.ts';
 import type { SchemaNames } from '../schema-names.ts';
 
 /** Shared wrapper for the db:* scripts: pool lifecycle and short, secret-free error messages. */
-export async function runCli(main: (pool: Pool, schemas: SchemaNames) => Promise<void>) {
+export async function runCli(
+  main: (pool: Pool, schemas: SchemaNames) => Promise<void>,
+  /** Fixed schema prefix; when omitted DB_SCHEMA_PREFIX is used. */
+  prefix?: string,
+) {
   let pool: Pool | undefined;
   try {
-    const schemas = resolveSchemas();
+    const schemas = resolveSchemas(prefix);
     pool = createPool({ max: 2 });
     await main(pool, schemas);
   } catch (err) {

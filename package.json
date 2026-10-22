@@ -19,6 +19,8 @@
     "db:seed": "npm run seed -w @teamboard/db",
     "db:setup": "npm run setup -w @teamboard/db",
     "db:reset": "npm run reset -w @teamboard/db",
+    "db:seed-storybook": "npm run seed-storybook -w @teamboard/db",
+    "db:reset-storybook": "npm run reset-storybook -w @teamboard/db",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w @teamboard/web",

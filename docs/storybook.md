@@ -56,6 +56,22 @@ The toolbar has a "Data" switch: "Fixtures" (the default) or "Live schema". Fixt
 described here. Live schema (reading real `sb_app` / `sb_config` tables) is coming; for now it still
 loads the fixtures and only shows a small notice in the corner of the story.
 
+### The `sb_app` mirror
+
+`sb_app` / `sb_config` are real schemas with the same tables as `app` / `config` (`sb_mocks` is
+created by the migration runner and stays empty). They hold the six fixture scenarios as real rows,
+one board per scenario, so you can edit a row there and leave the app data alone.
+
+```bash
+npm run db:seed-storybook    # migrate sb_ and add any scenario board that is missing
+npm run db:reset-storybook   # drop and recreate sb_* only, then reseed (loses your edits)
+```
+
+The seed is insert-only: a scenario whose board exists is not touched, so edits survive reruns. The
+board of each scenario is recorded in `sb_config.settings` as `storybook_scenario_<name>` (the board
+id). `db:setup`, `db:seed` and `db:reset` never touch `sb_*`, and these two commands never touch
+`app`, `config` or `mocks`. The prefix is fixed to `sb_`; `DB_SCHEMA_PREFIX` is ignored.
+
 ### Edit a fixture and see it in the story
 
 ```sql
