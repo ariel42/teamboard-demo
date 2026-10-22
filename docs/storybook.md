@@ -77,8 +77,12 @@ The toolbar has a "Data" switch: "Fixtures" (the default) or "Live schema".
 - **Reset** your edits with `npm run db:reset-storybook`.
 - If `sb_` is not seeded or the database is down, the endpoint answers 503 with a hint
   (`npm run db:seed-storybook`). The story then shows the fixture and the badge turns red with the
-  message.
+  message. When you seed `sb_`, the story recovers by itself (it keeps polling and reloads once).
 - In the static build the badge says "Live schema needs the dev server" and the fixtures are used.
+- The reload keeps the choices you made in the toolbar, not the ones a story sets itself.
+- The live stories under `Layout/Data source` are hidden from the sidebar and Docs (tags `!dev`,
+  `!autodocs`) but run in `npm run test:ui`, which seeds and drops its own throwaway `t<hex>_sb_`
+  schema, so the run does not depend on your `sb_` data.
 - Known gaps: the live payload lists every user in `sb_app`, and ids are the real serial ids (not the
   fixture ids).
 

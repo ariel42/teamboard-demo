@@ -141,17 +141,18 @@ function getLivePool(): Pool {
   return (livePool ??= createPool({ max: 2 }));
 }
 
-/** `/__fixtures-live/...`: read per request, never cached. False when the path is not a live path. */
-async function handleLive(pathname: string, res: ServerResponse): Promise<boolean> {
+const LIVE_PATH = /^\/__fixtures-live\/[^/]+(\/version)?\/?$/;
+
+/** `/__fixtures-live/...`: read per request, never cached. */
+async function handleLive(pathname: string, res: ServerResponse) {
   const live = await liveResponse(pathname, getLivePool);
-  if (!live) return false;
-  sendJson(res, live.status, live.body, live.headers);
-  return true;
+  if (live) sendJson(res, live.status, live.body, live.headers);
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse, next: () => void) {
   const url = new URL(req.url ?? '/', 'http://localhost');
-  if (req.method === 'GET' && (await handleLive(url.pathname, res))) return;
+  // Decided synchronously, so every other request reaches next() exactly as before.
+  if (req.method === 'GET' && LIVE_PATH.test(url.pathname)) return handleLive(url.pathname, res);
   if (req.method !== 'GET' || !/^\/__fixtures(\/|$)/.test(url.pathname)) return next();
   try {
     const name = decodeURIComponent(url.pathname.slice('/__fixtures'.length).replace(/^\//, ''));

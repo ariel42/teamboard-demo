@@ -52,9 +52,9 @@ const withFixtureError: Decorator = (Story, context) => {
 const withLiveData: Decorator = (Story, context) => {
   if (resolveDataSource(context.globals.dataSource) !== 'live') return <Story />;
   const live = context.loaded.live as LiveInfo | undefined;
+  // 'ok' polls for edits, 'error' polls until the schema can be read ('static' has no server).
   const poll =
-    live?.state === 'ok' &&
-    live.version !== undefined &&
+    ((live?.state === 'ok' && live.version !== undefined) || live?.state === 'error') &&
     context.viewMode === 'story' &&
     !import.meta.env.VITEST;
   return (
@@ -64,9 +64,10 @@ const withLiveData: Decorator = (Story, context) => {
       {poll ? (
         <LiveRefresh
           key={context.id}
+          id={context.id}
           name={live.name}
-          version={live.version as string}
-          globals={context.globals}
+          version={live.version}
+          globals={context.userGlobals}
         />
       ) : null}
     </>

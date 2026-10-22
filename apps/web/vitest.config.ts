@@ -9,7 +9,8 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Two projects:
 //   unit       jsdom, no browser, no database. This is what `npm test` runs.
-//   storybook  every story as a browser test in headless Chromium (needs the fixtures DB).
+//   storybook  every story as a browser test in headless Chromium (needs the fixtures DB). Its
+//              globalSetup seeds and drops a throwaway t<hex>_sb_ schema for the live-data stories.
 //              This is what `npm run test:ui` runs.
 export default defineConfig({
   plugins: [react()],
@@ -46,6 +47,7 @@ export default defineConfig({
         },
         test: {
           name: 'storybook',
+          globalSetup: ['src/test/storybookGlobalSetup.ts'],
           browser: {
             enabled: true,
             headless: true,

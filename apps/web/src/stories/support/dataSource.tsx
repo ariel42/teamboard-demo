@@ -57,10 +57,12 @@ export function LiveBadge({ live }: { live?: LiveInfo }) {
 
 /**
  * Polls the version of a live scenario and calls `onChange` once when it differs from
- * `initialVersion`. A failed poll (server restarting) is ignored. Returns the stop function.
+ * `initialVersion`. Without an `initialVersion` (the load failed) the first successful poll counts
+ * as a change: the schema was seeded, so the story should reload. A failed poll (server restarting,
+ * or 503 not seeded) is ignored. Returns the stop function.
  */
 export function startLivePolling(options: {
-  initialVersion: string;
+  initialVersion?: string;
   fetchVersion: () => Promise<string>;
   onChange: () => void;
   intervalMs?: number;
@@ -72,7 +74,7 @@ export function startLivePolling(options: {
     try {
       const version = await fetchVersion();
       if (stopped) return;
-      if (version !== initialVersion) {
+      if (initialVersion === undefined || version !== initialVersion) {
         stopped = true;
         onChange();
         return;
@@ -109,14 +111,34 @@ export function reloadPreview(globals: Record<string, unknown>) {
   window.location.replace(url.toString());
 }
 
-/** Renders nothing; polls while mounted (live mode, one story) and reloads on a change. */
+const RECOVER_KEY = 'tb-live-recover';
+const RECOVER_MIN_MS = 10_000;
+
+/** Error recovery reloads at most once per story per 10 s, so a flapping server cannot loop. */
+function mayRecover(id: string, now = Date.now()): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(`${RECOVER_KEY}:${id}`) ?? 0);
+    if (now - last < RECOVER_MIN_MS) return false;
+    sessionStorage.setItem(`${RECOVER_KEY}:${id}`, String(now));
+  } catch {
+    // no sessionStorage: allow the reload
+  }
+  return true;
+}
+
+/**
+ * Renders nothing; polls while mounted (live mode, one story) and reloads on a change. With no
+ * `version` (the live load failed) it waits for the schema to become readable and reloads once.
+ */
 export function LiveRefresh({
+  id,
   name,
   version,
   globals,
 }: {
+  id: string;
   name: string;
-  version: string;
+  version?: string;
   globals: Record<string, unknown>;
 }) {
   const globalsRef = useRef(globals);
@@ -128,9 +150,12 @@ export function LiveRefresh({
       startLivePolling({
         initialVersion: version,
         fetchVersion: () => fetchLiveVersion(name),
-        onChange: () => reloadPreview(globalsRef.current),
+        onChange: () => {
+          if (version === undefined && !mayRecover(id)) return;
+          reloadPreview(globalsRef.current);
+        },
       }),
-    [name, version],
+    [id, name, version],
   );
   return null;
 }

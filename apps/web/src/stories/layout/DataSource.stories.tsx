@@ -20,6 +20,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/**
+ * The live stories need a seeded sb_ schema and the dev server, so they stay out of the sidebar
+ * and Docs (also in the static build) but still run under vitest (`test` stays). `npm run test:ui`
+ * seeds its own throwaway schema for them.
+ */
+const TESTS_ONLY = ['!dev', '!autodocs'];
+
 /** No global set: the default is "fixtures", nothing live is loaded and there is no badge. */
 export const DefaultIsFixtures: Story = {
   play: async ({ globals, loaded, canvasElement }) => {
@@ -34,6 +41,7 @@ export const DefaultIsFixtures: Story = {
 
 /** "Live schema" selected: the board is read from sb_app and the badge says so. */
 export const LiveShowsBadge: Story = {
+  tags: TESTS_ONLY,
   globals: { dataSource: 'live' },
   play: async ({ globals, loaded }) => {
     await expect(globals.dataSource).toBe('live');
@@ -49,6 +57,7 @@ export const LiveShowsBadge: Story = {
 
 /** A composition fed from sb_app: the same Board, with the live payload in `loaded.fixture`. */
 export const LiveBoard: StoryObj<typeof StatefulBoard> = {
+  tags: TESTS_ONLY,
   globals: { dataSource: 'live' },
   parameters: { layout: 'fullscreen' },
   args: { flags: DEFAULT_FLAGS, wipLimit: 5 },
@@ -66,6 +75,7 @@ export const LiveBoard: StoryObj<typeof StatefulBoard> = {
 
 /** A page story (MSW fake API) seeded from the live payload: the board id is the real sb_app id. */
 export const LivePage: StoryObj<typeof PageHarness> = {
+  tags: TESTS_ONLY,
   globals: { dataSource: 'live' },
   parameters: { layout: 'fullscreen', mockApi: {} },
   render: (_args, { loaded }) => (
