@@ -199,16 +199,16 @@ export async function seedStorybook(
   return results;
 }
 
-const ALLOWED_PREFIX = new RegExp(`^(${STORYBOOK_PREFIX}|t[0-9a-f]{8}_(${STORYBOOK_PREFIX})?)$`);
+const ALLOWED_PREFIX = new RegExp(`^(${STORYBOOK_PREFIX}|t[0-9a-f]{8}_${STORYBOOK_PREFIX})$`);
 
-/** True for the mirror prefix `sb_` and for throwaway test prefixes (`t<hex>_`, `t<hex>_sb_`). */
+/** True only for the mirror prefix `sb_` and throwaway `t<hex8>_sb_`; never a bare `t<hex8>_` app-test prefix. */
 export function isStorybookPrefix(prefix: string): boolean {
   return ALLOWED_PREFIX.test(prefix);
 }
 
 /**
  * Drops and recreates only this prefix's schemas, then reseeds. `schemas` is required and only
- * `sb_` or a `t<hex>_` test prefix is accepted, so a caller can never drop the real schemas by
+ * `sb_` or a `t<hex8>_sb_` test prefix is accepted, so a caller can never drop the real schemas by
  * passing `resolveSchemas()` with DB_SCHEMA_PREFIX set.
  */
 export async function resetStorybook(pool: Pool, schemas: SchemaNames): Promise<ScenarioResult[]> {

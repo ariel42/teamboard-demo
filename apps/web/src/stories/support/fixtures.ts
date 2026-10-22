@@ -51,6 +51,10 @@ let staticCache: Promise<Record<string, BoardPayload>> | undefined;
 const loadStatic = () =>
   (staticCache ??= fetchJson('__fixtures.json').then(
     (r) => r.body as Record<string, BoardPayload>,
+    (error: unknown) => {
+      staticCache = undefined; // a failed fetch must not be cached: the next story retries
+      throw error;
+    },
   ));
 
 /**
@@ -73,7 +77,10 @@ export async function loadFixture(
 /** Current version of a scenario (cheap md5 from the dev server). */
 export async function fetchLiveVersion(name: string): Promise<string> {
   const { body } = await fetchJson(`__fixtures/${encodeURIComponent(name)}/version`);
-  return (body as { version: string }).version;
+  const version = (body as { version?: unknown } | null)?.version;
+  if (typeof version !== 'string' || !version)
+    throw new Error('The version answer has no version.');
+  return version;
 }
 
 /**
@@ -83,7 +90,8 @@ export async function fetchLiveVersion(name: string): Promise<string> {
 export async function fixtureLoader(name: string): Promise<LoadedFixture> {
   try {
     const { fixture, version } = await loadFixture(name);
-    return { fixture, live: __TB_FIXTURES_STATIC__ ? undefined : { name, version } };
+    // No X-Live-Version header: nothing to compare with, so no auto-refresh (never a reload loop).
+    return { fixture, live: __TB_FIXTURES_STATIC__ || !version ? undefined : { name, version } };
   } catch (error) {
     return {
       fixtureError: `Scenario "${name}": ${(error as Error).message}`,

@@ -115,7 +115,7 @@ describe('db:seed-storybook CLI (real Postgres, spawned process)', () => {
 
   it('rejects a TEAMBOARD_STORYBOOK_PREFIX that is not a test prefix', async () => {
     const before = await everythingElse();
-    for (const bad of ['dev_', 'app_', t.prefix.replace(/_$/, 'x_')]) {
+    for (const bad of ['dev_', 'app_', t.prefix, t.prefix.replace(/_$/, 'x_')]) {
       await expect(cli(['--reset'], { TEAMBOARD_STORYBOOK_PREFIX: bad }), bad).rejects.toThrow();
     }
     expect(await everythingElse()).toEqual(before);

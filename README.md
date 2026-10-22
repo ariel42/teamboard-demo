@@ -38,25 +38,25 @@ Requirements: Node 24 (`engines` is `>=24 <25`, `engine-strict=true`). There is 
 
 ## Scripts (run from the repo root)
 
-| Script                    | What it does                                                                         |
-| ------------------------- | ------------------------------------------------------------------------------------ |
-| `npm run dev`             | Runs every `dev:*` script with concurrently: the API and the web client.             |
-| `npm run dev:api`         | API with `tsx watch` (same as `npm run dev -w @teamboard/api`).                      |
-| `npm run dev:web`         | Vite dev server on 5173 with the `/api` proxy.                                       |
-| `npm run build`           | Type-checks and builds every workspace that has a build (the web client).            |
-| `npm test`                | Unit, component and API integration tests (vitest; the API tests use real Postgres). |
-| `npm run storybook`       | Storybook on http://localhost:6006 (needs `DATABASE_URL`), see "Storybook".          |
-| `npm run build-storybook` | Static Storybook in `apps/web/storybook-static`.                                     |
-| `npm run test:ui`         | Every story as a browser test (play functions and axe), see "Storybook".             |
-| `npm run test:e2e`        | Playwright against the real stack, see "Tests and CI".                               |
-| `npm run db:migrate`      | Applies pending SQL migrations.                                                      |
-| `npm run db:seed`         | Seeds config and the "Sprint 24" starter board. Idempotent.                          |
-| `npm run db:setup`        | `db:migrate`, `db:seed`, then the insert-only `sb_*` mirror seed (Storybook data).   |
-| `npm run db:reset`        | Drops the `app` and `config` schemas, then runs `db:setup`.                          |
-| `npm run lint`            | ESLint and `prettier --check`.                                                       |
-| `npm run format`          | `prettier --write`.                                                                  |
-| `npm run typecheck`       | `tsc --noEmit` in every workspace.                                                   |
-| `npm run doctor`          | Checks Node version, `DATABASE_URL`, DB reachability, migrations, and free ports.    |
+| Script                    | What it does                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------ |
+| `npm run dev`             | Runs every `dev:*` script with concurrently: the API and the web client.                         |
+| `npm run dev:api`         | API with `tsx watch` (same as `npm run dev -w @teamboard/api`).                                  |
+| `npm run dev:web`         | Vite dev server on 5173 with the `/api` proxy.                                                   |
+| `npm run build`           | Type-checks and builds every workspace that has a build (the web client).                        |
+| `npm test`                | Unit, component and API integration tests (vitest; the API tests use real Postgres).             |
+| `npm run storybook`       | Storybook on http://localhost:6006 (needs `DATABASE_URL`), see "Storybook".                      |
+| `npm run build-storybook` | Static Storybook in `apps/web/storybook-static`.                                                 |
+| `npm run test:ui`         | Every story as a browser test (play functions and axe), see "Storybook".                         |
+| `npm run test:e2e`        | Playwright against the real stack, see "Tests and CI".                                           |
+| `npm run db:migrate`      | Applies pending SQL migrations.                                                                  |
+| `npm run db:seed`         | Seeds config and the "Sprint 24" starter board. Idempotent.                                      |
+| `npm run db:setup`        | `db:migrate`, `db:seed`, then the insert-only `sb_*` mirror seed (Storybook data).               |
+| `npm run db:reset`        | Drops `app` and `config`, then `db:setup`. `sb_*` survives (reset it with `db:reset-storybook`). |
+| `npm run lint`            | ESLint and `prettier --check`.                                                                   |
+| `npm run format`          | `prettier --write`.                                                                              |
+| `npm run typecheck`       | `tsc --noEmit` in every workspace.                                                               |
+| `npm run doctor`          | Checks Node version, `DATABASE_URL`, DB reachability, migrations, and free ports.                |
 
 `npm run doctor` exits non-zero when a check fails and prints a short fix hint. It expects ports
 5173, 3000 and 6006 to be free, so run it before starting the dev servers.

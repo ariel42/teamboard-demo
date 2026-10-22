@@ -2,12 +2,16 @@ import { useEffect, useRef } from 'react';
 import { fetchLiveVersion } from './fixtures';
 
 export const LIVE_POLL_MS = 2000;
+/** Consecutive failed polls (404, 503, server down) after which polling gives up. */
+export const LIVE_MAX_FAILURES = 5;
 
 /**
  * Polls the version of a live scenario and calls `onChange` once when it differs from
  * `initialVersion`. Without an `initialVersion` (the load failed) the first successful poll counts
  * as a change: the schema was seeded, so the story should reload. A failed poll (server restarting,
- * or 503 not seeded) is ignored. Returns the stop function.
+ * 503 not seeded, 404) is tolerated, but after LIVE_MAX_FAILURES in a row polling stops for good
+ * (reload the story to start again). Polling is paused while the tab is hidden (no request, and it
+ * does not count as a failure). Returns the stop function.
  */
 export function startLivePolling(options: {
   initialVersion?: string;
@@ -18,17 +22,27 @@ export function startLivePolling(options: {
   const { initialVersion, fetchVersion, onChange, intervalMs = LIVE_POLL_MS } = options;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let failures = 0;
   const tick = async () => {
+    if (typeof document !== 'undefined' && document.hidden) {
+      timer = setTimeout(() => void tick(), intervalMs);
+      return;
+    }
     try {
       const version = await fetchVersion();
       if (stopped) return;
+      failures = 0;
       if (initialVersion === undefined || version !== initialVersion) {
         stopped = true;
         onChange();
         return;
       }
     } catch {
-      // keep polling
+      if (stopped) return;
+      if (++failures >= LIVE_MAX_FAILURES) {
+        stopped = true;
+        return;
+      }
     }
     if (!stopped) timer = setTimeout(() => void tick(), intervalMs);
   };

@@ -2,14 +2,16 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   buildFixtures,
   createRepo,
+  dropSchemas,
   mockBoardName,
   mockColumnName,
   resetStorybook,
   resolveSchemas,
+  runMigrations,
   scenarioSettingKey,
   seedStorybook,
 } from '../src/index.ts';
-import type { Repo } from '../src/index.ts';
+import type { Repo, SchemaNames } from '../src/index.ts';
 import { createTestSchema } from '../src/testing.ts';
 import type { TestSchema } from '../src/testing.ts';
 
@@ -24,21 +26,28 @@ const EXPECTED_CARDS: Record<string, number> = {
 
 describe('storybook mirror seed (real Postgres, throwaway prefix)', () => {
   let t: TestSchema;
+  let mirror: SchemaNames; // `t<hex>_sb_`: the only shape of throwaway prefix a reset accepts
   let repo: Repo;
 
   beforeAll(async () => {
-    t = await createTestSchema();
-    repo = createRepo(t.pool, t.schemas);
+    t = await createTestSchema({ migrate: false });
+    mirror = resolveSchemas(`${t.prefix}sb_`);
+    await runMigrations(t.pool, mirror);
+    repo = createRepo(t.pool, mirror);
   });
   afterAll(async () => {
-    await t.drop();
+    try {
+      await dropSchemas(t.pool, mirror);
+    } finally {
+      await t.drop();
+    }
   });
 
   const boardIds = async () => {
     const out = new Map<string, number>();
     for (const f of buildFixtures()) {
       const { rows } = await t.pool.query<{ value: number }>(
-        `select value from ${t.schemas.config}.settings where key = $1`,
+        `select value from ${mirror.config}.settings where key = $1`,
         [scenarioSettingKey(f.name)],
       );
       out.set(f.name, rows[0]!.value);
@@ -47,14 +56,14 @@ describe('storybook mirror seed (real Postgres, throwaway prefix)', () => {
   };
 
   it('creates one board per scenario with the expected card and comment counts', async () => {
-    const results = await seedStorybook(t.pool, t.schemas);
+    const results = await seedStorybook(t.pool, mirror);
     expect(results.map((r) => r.board)).toEqual(Array(6).fill('created'));
 
     const ids = await boardIds();
     expect(ids.size).toBe(6);
     expect(new Set(ids.values()).size).toBe(6);
     const { rows } = await t.pool.query<{ n: number }>(
-      `select count(*)::int n from ${t.schemas.app}.boards`,
+      `select count(*)::int n from ${mirror.app}.boards`,
     );
     expect(rows[0]!.n).toBe(6);
 
@@ -76,14 +85,14 @@ describe('storybook mirror seed (real Postgres, throwaway prefix)', () => {
 
   it('marks every board and column name as mock, and leaves card titles alone', async () => {
     const names = await t.pool.query<{ kind: string; name: string }>(
-      `select 'board' kind, name from ${t.schemas.app}.boards
-       union all select 'column', name from ${t.schemas.app}.columns`,
+      `select 'board' kind, name from ${mirror.app}.boards
+       union all select 'column', name from ${mirror.app}.columns`,
     );
     expect(names.rows.length).toBeGreaterThan(6);
     for (const r of names.rows) expect(r.name, `${r.kind} ${r.name}`).toMatch(/mock/);
     expect(mockBoardName('Sprint 24')).toBe('Sprint 24 · mock');
     expect(mockColumnName('To do')).toBe('To do (mock)');
-    const titles = await t.pool.query(`select 1 from ${t.schemas.app}.cards where title ~ 'mock'`);
+    const titles = await t.pool.query(`select 1 from ${mirror.app}.cards where title ~ 'mock'`);
     expect(titles.rowCount).toBe(0);
   });
 
@@ -94,29 +103,29 @@ describe('storybook mirror seed (real Postgres, throwaway prefix)', () => {
     await repo.updateCard(card.id, { title: 'EDITED IN SB' });
     await repo.deleteCard(typical.columns[1]!.cards[0]!.id);
 
-    const again = await seedStorybook(t.pool, t.schemas);
+    const again = await seedStorybook(t.pool, mirror);
     expect(again.map((r) => r.board)).toEqual(Array(6).fill('exists'));
 
     const after = (await repo.getBoardPayload(ids.get('typical')!))!;
     expect(after.columns[0]!.cards[0]!.title).toBe('EDITED IN SB');
     expect(after.columns.flatMap((c) => c.cards)).toHaveLength(12);
     const { rows } = await t.pool.query<{ n: number }>(
-      `select count(*)::int n from ${t.schemas.app}.boards`,
+      `select count(*)::int n from ${mirror.app}.boards`,
     );
     expect(rows[0]!.n).toBe(6);
   });
 
   it('survives a renamed board (the link is the stored id, not the name)', async () => {
     const ids = await boardIds();
-    await t.pool.query(`update ${t.schemas.app}.boards set name = 'Renamed' where id = $1`, [
+    await t.pool.query(`update ${mirror.app}.boards set name = 'Renamed' where id = $1`, [
       ids.get('empty'),
     ]);
-    const again = await seedStorybook(t.pool, t.schemas);
+    const again = await seedStorybook(t.pool, mirror);
     expect(again.every((r) => r.board === 'exists')).toBe(true);
   });
 
   it('reset recreates the schemas and restores the original data', async () => {
-    const results = await resetStorybook(t.pool, t.schemas);
+    const results = await resetStorybook(t.pool, mirror);
     expect(results.map((r) => r.board)).toEqual(Array(6).fill('created'));
     const ids = await boardIds();
     const typical = (await repo.getBoardPayload(ids.get('typical')!))!;
@@ -129,11 +138,11 @@ describe('storybook mirror seed (real Postgres, throwaway prefix)', () => {
   it('falls back to the board name when the stored link is not a board id', async () => {
     const key = scenarioSettingKey('typical');
     for (const bad of ['"abc"', '1.5', '99999999999', 'null']) {
-      await t.pool.query(
-        `update ${t.schemas.config}.settings set value = $2::jsonb where key = $1`,
-        [key, bad],
-      );
-      const again = await seedStorybook(t.pool, t.schemas);
+      await t.pool.query(`update ${mirror.config}.settings set value = $2::jsonb where key = $1`, [
+        key,
+        bad,
+      ]);
+      const again = await seedStorybook(t.pool, mirror);
       expect(
         again.every((r) => r.board === 'exists'),
         bad,
@@ -143,8 +152,17 @@ describe('storybook mirror seed (real Postgres, throwaway prefix)', () => {
     expect(typeof ids.get('typical')).toBe('number');
   });
 
-  it('refuses to reset any prefix other than sb_ or a test prefix', async () => {
-    for (const prefix of ['', 'dev_', 'app_', 'tzzzzzzzz_', 't1234567_']) {
+  it('refuses to reset any prefix other than sb_ or a t<hex8>_sb_ test prefix', async () => {
+    // t.prefix is the bare app-test prefix `t<hex8>_`: it must never be resettable.
+    for (const prefix of [
+      '',
+      'dev_',
+      'app_',
+      'tzzzzzzzz_',
+      't1234567_',
+      t.prefix,
+      'tzzzzzzzz_sb_',
+    ]) {
       await expect(resetStorybook(t.pool, resolveSchemas(prefix)), prefix).rejects.toThrow(
         /Refusing/,
       );

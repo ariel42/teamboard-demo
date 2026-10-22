@@ -67,7 +67,8 @@ update sb_app.cards set title = 'Edited in SQL'
 
 In the dev server the story reloads by itself (about 2 s): it polls `/__fixtures/:name/version` and
 reloads the preview when the hash changes, keeping the toolbar choices (theme, direction). Polling
-stops when you open another story. Reset your edits with `npm run db:reset-storybook`.
+stops when you open another story, pauses while the tab is hidden, and gives up after 5 failed polls in a
+row (404, 503, server down); reload the story to start it again. Reset your edits with `npm run db:reset-storybook`.
 
 ### The `sb_` schemas
 
@@ -84,9 +85,10 @@ Scenario boards are insert-only: a scenario whose board exists is not touched, s
 reruns. The board of each scenario is recorded in `sb_config.settings` as
 `storybook_scenario_<name>`. `db:setup` ends with the same insert-only seed. `db:seed` and
 `db:reset` never touch `sb_*`, and the two commands above never touch `app` or `config`. The prefix
-is fixed to `sb_`; `DB_SCHEMA_PREFIX` is ignored. Only the tests override it
+is fixed to `sb_`; `DB_SCHEMA_PREFIX` is ignored, so a prefixed `db:setup` still seeds the real
+`sb_*` (insert-only), and a failure of that step fails `db:setup`. Only the tests override it
 (`TEAMBOARD_STORYBOOK_PREFIX`, a throwaway `t<hex>_sb_` prefix), so `npm test` never touches your
-real `sb_*` rows; reset refuses any other prefix.
+real `sb_*` rows; reset refuses any other prefix, including a bare `t<hex8>_` app-test prefix.
 
 Known gap: the payload lists every user in `sb_app`, and ids are the real serial ids.
 
@@ -116,6 +118,13 @@ npm run db:restore-fixtures   # on this branch: recreates an empty mocks.fixture
 git switch --detach fixtures-main   # or: git checkout -b old-fixtures fixtures-main
 npm ci && npm run db:setup    # the old seed refills mocks.fixtures; app data is untouched
 ```
+
+The restore must run once per environment and database (each dev DB, the Dev Container's, CI): it
+recreates an empty `mocks.fixtures`, and the old `db:setup` then refills it.
+
+If you checked out `fixtures-main` before restoring (the old `db:setup` then fails on the missing
+`mocks.fixtures`), recover like this: switch back to `storybook-live-data` (or main), run
+`npm run db:restore-fixtures`, then switch to `fixtures-main` again and run `npm ci && npm run db:setup`.
 
 `sb_*` stays in the database and the old code ignores it. To come back to the new version, check
 out the branch (or main after the merge) and run `npm run db:setup`: it applies 002 again. Proven

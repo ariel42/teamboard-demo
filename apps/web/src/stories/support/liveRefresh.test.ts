@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { globalsParam, startLivePolling } from './liveRefresh';
+import { LIVE_MAX_FAILURES, globalsParam, startLivePolling } from './liveRefresh';
 
 describe('startLivePolling', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -53,6 +53,52 @@ describe('startLivePolling', () => {
     await vi.advanceTimersByTimeAsync(2000);
     expect(onChange).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(10_000);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('startLivePolling: limits', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('stops after 5 consecutive failures (a 404 counts) and never polls again', async () => {
+    const fetchVersion = vi.fn(async () => {
+      throw new Error('Request failed with status 404');
+    });
+    const onChange = vi.fn();
+    startLivePolling({ initialVersion: 'a', fetchVersion, onChange });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(LIVE_MAX_FAILURES).toBe(5);
+    expect(fetchVersion).toHaveBeenCalledTimes(5);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('a success resets the failure count', async () => {
+    let n = 0;
+    const fetchVersion = vi.fn(async () => {
+      n++;
+      if (n % 4 === 0) return 'a';
+      throw new Error('down');
+    });
+    startLivePolling({ initialVersion: 'a', fetchVersion, onChange: vi.fn() });
+    await vi.advanceTimersByTimeAsync(2000 * 20);
+    expect(fetchVersion).toHaveBeenCalledTimes(20);
+  });
+
+  it('pauses while the tab is hidden: no request, and it still reacts after it is visible', async () => {
+    let hidden = true;
+    vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
+    const fetchVersion = vi.fn(async () => 'b');
+    const onChange = vi.fn();
+    startLivePolling({ initialVersion: 'a', fetchVersion, onChange });
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(fetchVersion).not.toHaveBeenCalled();
+    hidden = false;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(fetchVersion).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 });
