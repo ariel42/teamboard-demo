@@ -9,7 +9,7 @@ import {
 
 /**
  * Vitest globalSetup of the `storybook` project (`npm run test:ui`). The live-data stories read
- * the sb_ mirror through the Vite server's `/__fixtures-live`. So the run seeds its own throwaway
+ * the sb_ mirror through the Vite server's `/__fixtures`. So the run seeds its own throwaway
  * `t<hex>_sb_` prefix, points TEAMBOARD_STORYBOOK_PREFIX at it (the endpoint reads that variable on
  * every request) and drops it afterwards. The real `sb_*` schemas are never touched or required.
  */

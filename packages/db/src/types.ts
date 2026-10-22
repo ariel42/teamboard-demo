@@ -84,7 +84,7 @@ export interface BoardPayloadColumn {
   cards: BoardPayloadCard[];
 }
 
-/** The response of GET /api/boards/:id. Every `mocks.fixtures.data` has this shape. */
+/** The response of GET /api/boards/:id. The Storybook scenarios have this shape too. */
 export interface BoardPayload {
   board: Board;
   users: User[];

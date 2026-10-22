@@ -26,7 +26,7 @@ export const scenarioSettingKey = (name: string) => `storybook_scenario_${name}`
  * Every board and column name in the mirror carries a visible "mock" marker, so nobody mistakes
  * the rows for real app data: boards get a suffix ` · mock` ("Sprint 24 · mock"), columns get
  * ` (mock)` ("To do (mock)"). Card titles are left as they are. Applied only when seeding `sb_*`;
- * the `mocks.fixtures` JSON keeps the plain names. The same marker is used for every scenario,
+ * the scenario builders in fixtures.ts keep the plain names. The same marker is used for every scenario,
  * the Hebrew one included (see docs/storybook.md).
  */
 export const mockBoardName = (name: string) => `${name} · mock`;
@@ -167,7 +167,6 @@ async function createScenarioBoard(
 /**
  * Seeds the six scenarios into already-migrated schemas. Insert-only (see the file comment).
  * Also seeds `<prefix>config` (feature flags, settings) with the same insert-only rules as db:seed.
- * Does not touch `<prefix>mocks`.
  */
 export async function seedStorybook(
   pool: Pool,

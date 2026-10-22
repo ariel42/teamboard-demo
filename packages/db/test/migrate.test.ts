@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { listMigrationFiles, renderSql, resolveSchemas, runMigrations } from '../src/index.ts';
+import {
+  listMigrationFiles,
+  renderSql,
+  resolveSchemas,
+  restoreFixturesTable,
+  runMigrations,
+} from '../src/index.ts';
 import { createTestSchema } from '../src/testing.ts';
 import type { TestSchema } from '../src/testing.ts';
 
@@ -29,7 +35,7 @@ describe('migrations', () => {
     expect(rows).toHaveLength(files.length);
   });
 
-  it('creates the tables in the three prefixed schemas', async () => {
+  it('creates the tables in the two prefixed schemas and drops the legacy mocks schema', async () => {
     const { rows } = await t.pool.query<{ table_schema: string; table_name: string }>(
       `select table_schema, table_name from information_schema.tables
         where table_schema = any($1) order by 1, 2`,
@@ -45,7 +51,6 @@ describe('migrations', () => {
       'app.users',
       'config.feature_flags',
       'config.settings',
-      'mocks.fixtures',
     ]);
   });
 
@@ -67,6 +72,85 @@ describe('migrations', () => {
   it('never touches the default schemas when a prefix is used', async () => {
     expect(t.schemas.raw.app).toBe(`${t.prefix}app`);
     expect(t.prefix).not.toBe('');
+  });
+});
+
+describe('002_drop_mocks', () => {
+  const exists = async (t: TestSchema, raw: string) =>
+    (
+      await t.pool.query<{ n: number }>(
+        'select count(*)::int n from pg_namespace where nspname = $1',
+        [raw],
+      )
+    ).rows[0]!.n === 1;
+
+  it('drops the legacy mocks schema and never brings it back', async () => {
+    const t = await createTestSchema({ migrate: false });
+    try {
+      // An older database: only 001 applied, with fixtures inside mocks.
+      await t.pool.query(`create schema ${t.schemas.mocks}`);
+      await runMigrations(t.pool, t.schemas);
+      expect(await exists(t, t.schemas.raw.mocks)).toBe(false);
+      expect((await runMigrations(t.pool, t.schemas)).applied).toEqual([]);
+      expect(await exists(t, t.schemas.raw.mocks)).toBe(false);
+    } finally {
+      await t.drop();
+    }
+  });
+
+  it('upgrades a database that still holds mocks.fixtures, keeping app data', async () => {
+    const t = await createTestSchema({ migrate: false });
+    try {
+      const files = await listMigrationFiles();
+      const first = files.find((f) => f.name === '001_init.sql')!;
+      // Simulate the old code: schemas, 001 only, a fixture row and an app row.
+      for (const s of [t.schemas.app, t.schemas.config, t.schemas.mocks]) {
+        await t.pool.query(`create schema if not exists ${s}`);
+      }
+      await t.pool.query(renderSql(first.sql, t.schemas));
+      await t.pool.query(
+        `create table ${t.schemas.app}.migrations (name text primary key, applied_at timestamptz not null default now())`,
+      );
+      await t.pool.query(`insert into ${t.schemas.app}.migrations (name) values ('001_init.sql')`);
+      await t.pool.query(
+        `insert into ${t.schemas.mocks}.fixtures (name, data) values ('typical', '{}')`,
+      );
+      await t.pool.query(
+        `insert into ${t.schemas.app}.users (name, initials, color) values ('Ada', 'A', '#fff')`,
+      );
+
+      const res = await runMigrations(t.pool, t.schemas);
+      expect(res.applied).toEqual(files.map((f) => f.name).filter((n) => n !== '001_init.sql'));
+      expect(await exists(t, t.schemas.raw.mocks)).toBe(false);
+      const { rows } = await t.pool.query(`select name from ${t.schemas.app}.users`);
+      expect(rows).toEqual([{ name: 'Ada' }]);
+    } finally {
+      await t.drop();
+    }
+  });
+
+  it('restoreFixturesTable puts back an empty table and forgets 002, then 002 can run again', async () => {
+    const t = await createTestSchema();
+    try {
+      await t.pool.query(
+        `insert into ${t.schemas.app}.users (name, initials, color) values ('Ada', 'A', '#fff')`,
+      );
+      await restoreFixturesTable(t.pool, t.schemas);
+      const fx = await t.pool.query(`select count(*)::int n from ${t.schemas.mocks}.fixtures`);
+      expect(fx.rows[0].n).toBe(0);
+      const { rows } = await t.pool.query(`select name from ${t.schemas.app}.migrations`);
+      expect(rows.map((r) => r.name)).not.toContain('002_drop_mocks.sql');
+
+      // Safe to repeat.
+      await restoreFixturesTable(t.pool, t.schemas);
+
+      const again = await runMigrations(t.pool, t.schemas);
+      expect(again.applied).toEqual(['002_drop_mocks.sql']);
+      expect(await exists(t, t.schemas.raw.mocks)).toBe(false);
+      expect((await t.pool.query(`select name from ${t.schemas.app}.users`)).rows).toHaveLength(1);
+    } finally {
+      await t.drop();
+    }
   });
 });
 

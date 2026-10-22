@@ -1,122 +1,27 @@
 /**
- * Vite plugin that serves the board fixtures stored in Postgres (`mocks.fixtures`) to stories.
+ * Vite plugin that serves the Storybook board data from the `sb_` mirror schemas (sb_app/sb_config).
+ * That is the only data source: `npm run db:setup` fills it, `update sb_app.cards ...` edits it.
  *
- *   dev server        GET /__fixtures          -> [{ name, description }]
- *                     GET /__fixtures/:name    -> BoardPayload (validated with boardPayloadSchema)
- *                     GET /__fixtures-live/:name          -> BoardPayload built live from sb_app (the mirror)
- *                     GET /__fixtures-live/:name/version  -> { version } (md5 of that payload)
- *   storybook build   the same data is pre-rendered into /__fixtures.json (no DB needed to serve it);
- *                     the live endpoints exist only in the dev server
+ *   dev server        GET /__fixtures/:name          -> BoardPayload built live from sb_app
+ *                     GET /__fixtures/:name/version  -> { version } (md5 of that payload)
+ *   storybook build   every scenario is read from sb_ once, at build time, and written to
+ *                     /__fixtures.json ({ name: BoardPayload }); the built Storybook needs no database
  *
- * Connection: DATABASE_URL (required) and the optional DB_SCHEMA_PREFIX, like the rest of the repo.
- * Failures answer with HTTP 503 and `{ error }` so the story can show a readable error panel.
+ * Connection: DATABASE_URL (required). Failures answer with HTTP 503 and `{ error }` (with the
+ * `npm run db:setup` hint) so the story can show a readable message.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import pg from 'pg';
 import type { Plugin } from 'vite';
 import {
-  boardPayloadSchema,
+  buildFixtures,
   createPool,
   liveResponse,
   LiveScenarioError,
-  resolveSchemas,
+  liveSchemas,
+  readLiveScenario,
+  SEED_HINT,
 } from '@teamboard/db';
-import type { Pool } from '@teamboard/db';
-import type { BoardPayload } from '@teamboard/db';
-
-export interface FixtureInfo {
-  name: string;
-  description: string;
-}
-
-export interface StaticFixtures {
-  list: FixtureInfo[];
-  data: Record<string, BoardPayload>;
-}
-
-export class FixtureError extends Error {
-  readonly status: number;
-  constructor(message: string, status = 503) {
-    super(message);
-    this.name = 'FixtureError';
-    this.status = status;
-  }
-}
-
-async function withClient<T>(fn: (client: pg.Client) => Promise<T>): Promise<T> {
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new FixtureError(
-      'DATABASE_URL is not set, so the fixtures in mocks.fixtures cannot be read.',
-    );
-  }
-  const client = new pg.Client({ connectionString, connectionTimeoutMillis: 4000 });
-  // A dropped connection must not take the Storybook process down.
-  client.on('error', () => {});
-  try {
-    await client.connect();
-  } catch (err) {
-    client.end().catch(() => {});
-    throw new FixtureError(
-      `Cannot reach the database: ${(err as Error).message || 'connection failed'}`,
-    );
-  }
-  try {
-    return await fn(client);
-  } catch (err) {
-    if (err instanceof FixtureError) throw err;
-    throw new FixtureError(`Reading mocks.fixtures failed: ${(err as Error).message}`);
-  } finally {
-    client.end().catch(() => {});
-  }
-}
-
-function parsePayload(name: string, raw: unknown): BoardPayload {
-  const parsed = boardPayloadSchema.safeParse(raw);
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    throw new FixtureError(
-      `Fixture "${name}" does not match the board payload schema: ${first?.path.join('.') || '(root)'} ${first?.message ?? ''}`,
-      422,
-    );
-  }
-  return parsed.data;
-}
-
-export async function listFixtures(): Promise<FixtureInfo[]> {
-  return withClient(async (client) => {
-    const { mocks } = resolveSchemas();
-    const res = await client.query<FixtureInfo>(
-      `select name, description from ${mocks}.fixtures order by name`,
-    );
-    return res.rows;
-  });
-}
-
-export async function readFixture(name: string): Promise<BoardPayload> {
-  return withClient(async (client) => {
-    const { mocks } = resolveSchemas();
-    const res = await client.query<{ data: unknown }>(
-      `select data from ${mocks}.fixtures where name = $1`,
-      [name],
-    );
-    const row = res.rows[0];
-    if (!row) throw new FixtureError(`No fixture named "${name}" in mocks.fixtures.`, 404);
-    return parsePayload(name, row.data);
-  });
-}
-
-export async function readAllFixtures(): Promise<StaticFixtures> {
-  return withClient(async (client) => {
-    const { mocks } = resolveSchemas();
-    const res = await client.query<FixtureInfo & { data: unknown }>(
-      `select name, description, data from ${mocks}.fixtures order by name`,
-    );
-    const data: Record<string, BoardPayload> = {};
-    for (const row of res.rows) data[row.name] = parsePayload(row.name, row.data);
-    return { list: res.rows.map(({ name, description }) => ({ name, description })), data };
-  });
-}
+import type { BoardPayload, Pool } from '@teamboard/db';
 
 function sendJson(
   res: ServerResponse,
@@ -133,33 +38,37 @@ function sendJson(
 
 let livePool: Pool | undefined;
 
-/** One small pool for the live endpoints, created on first use and closed with the dev server. */
+/** One small pool for the endpoints, created on first use and closed with the dev server. */
 function getLivePool(): Pool {
   if (!process.env.DATABASE_URL) {
-    throw new LiveScenarioError('DATABASE_URL is not set, so sb_app cannot be read.');
+    throw new LiveScenarioError(`DATABASE_URL is not set, so sb_app cannot be read. ${SEED_HINT}`);
   }
   return (livePool ??= createPool({ max: 2 }));
 }
 
-const LIVE_PATH = /^\/__fixtures-live\/[^/]+(\/version)?\/?$/;
+const FIXTURE_PATH = /^\/__fixtures\/[^/]+(\/version)?\/?$/;
 
-/** `/__fixtures-live/...`: read per request, never cached. */
-async function handleLive(pathname: string, res: ServerResponse) {
-  const live = await liveResponse(pathname, getLivePool);
-  if (live) sendJson(res, live.status, live.body, live.headers);
-}
-
+/** `/__fixtures/...`: read per request, never cached. */
 async function handle(req: IncomingMessage, res: ServerResponse, next: () => void) {
   const url = new URL(req.url ?? '/', 'http://localhost');
   // Decided synchronously, so every other request reaches next() exactly as before.
-  if (req.method === 'GET' && LIVE_PATH.test(url.pathname)) return handleLive(url.pathname, res);
-  if (req.method !== 'GET' || !/^\/__fixtures(\/|$)/.test(url.pathname)) return next();
+  if (req.method !== 'GET' || !FIXTURE_PATH.test(url.pathname)) return next();
+  const live = await liveResponse(url.pathname, getLivePool);
+  if (live) sendJson(res, live.status, live.body, live.headers);
+}
+
+/** Reads every scenario from sb_app (or the test prefix) for `__fixtures.json`. */
+export async function readAllScenarios(): Promise<Record<string, BoardPayload>> {
+  const pool = getLivePool();
   try {
-    const name = decodeURIComponent(url.pathname.slice('/__fixtures'.length).replace(/^\//, ''));
-    sendJson(res, 200, name === '' ? await listFixtures() : await readFixture(name));
-  } catch (err) {
-    const status = err instanceof FixtureError ? err.status : 500;
-    sendJson(res, status, { error: (err as Error).message });
+    const schemas = liveSchemas();
+    const data: Record<string, BoardPayload> = {};
+    for (const { name } of buildFixtures())
+      data[name] = await readLiveScenario(pool, schemas, name);
+    return data;
+  } finally {
+    await pool.end().catch(() => {});
+    livePool = undefined;
   }
 }
 
@@ -182,19 +91,15 @@ export function fixturesPlugin(mode: 'serve' | 'build'): Plugin {
     },
     async generateBundle() {
       if (mode !== 'build') return;
-      let fixtures: StaticFixtures;
+      let data: Record<string, BoardPayload>;
       try {
-        fixtures = await readAllFixtures();
+        data = await readAllScenarios();
       } catch (err) {
         this.error(
-          `build-storybook needs the database to pre-render the fixtures into __fixtures.json. ${(err as Error).message}`,
+          `build-storybook reads the scenarios from the sb_ schemas into __fixtures.json, so it needs the database. ${(err as Error).message}`,
         );
       }
-      this.emitFile({
-        type: 'asset',
-        fileName: '__fixtures.json',
-        source: JSON.stringify(fixtures),
-      });
+      this.emitFile({ type: 'asset', fileName: '__fixtures.json', source: JSON.stringify(data) });
     },
   };
 }

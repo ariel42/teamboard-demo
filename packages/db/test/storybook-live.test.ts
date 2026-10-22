@@ -83,7 +83,7 @@ describe('storybook live read (real Postgres, throwaway prefix)', () => {
     const err = await readLiveScenario(pool, empty, 'typical').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(LiveScenarioError);
     expect(err).toMatchObject({ status: 503 });
-    expect((err as Error).message).toContain('npm run db:seed-storybook');
+    expect((err as Error).message).toContain('npm run db:setup');
   });
 
   it('503 when the schemas exist but the scenario board was deleted', async () => {

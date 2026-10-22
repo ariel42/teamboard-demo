@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { globalsParam, startLivePolling } from './dataSource';
+import { globalsParam, startLivePolling } from './liveRefresh';
 
 describe('startLivePolling', () => {
   beforeEach(() => vi.useFakeTimers());
@@ -62,10 +62,10 @@ describe('globalsParam', () => {
     expect(
       globalsParam('viewport.value:mobile;theme:light', {
         theme: 'dark',
-        dataSource: 'live',
+        dir: 'rtl',
         o: {},
       }),
-    ).toBe('viewport.value:mobile;theme:dark;dataSource:live');
+    ).toBe('viewport.value:mobile;theme:dark;dir:rtl');
     expect(globalsParam(null, { dir: 'rtl' })).toBe('dir:rtl');
   });
 });

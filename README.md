@@ -50,9 +50,9 @@ Requirements: Node 24 (`engines` is `>=24 <25`, `engine-strict=true`). There is 
 | `npm run test:ui`         | Every story as a browser test (play functions and axe), see "Storybook".             |
 | `npm run test:e2e`        | Playwright against the real stack, see "Tests and CI".                               |
 | `npm run db:migrate`      | Applies pending SQL migrations.                                                      |
-| `npm run db:seed`         | Seeds config, mock fixtures and the "Sprint 24" starter board. Idempotent.           |
-| `npm run db:setup`        | `db:migrate`, `db:seed`, then the insert-only `sb_*` mirror seed (Storybook Live).   |
-| `npm run db:reset`        | Drops the `app`, `config` and `mocks` schemas, then runs `db:setup`.                 |
+| `npm run db:seed`         | Seeds config and the "Sprint 24" starter board. Idempotent.                          |
+| `npm run db:setup`        | `db:migrate`, `db:seed`, then the insert-only `sb_*` mirror seed (Storybook data).   |
+| `npm run db:reset`        | Drops the `app` and `config` schemas, then runs `db:setup`.                          |
 | `npm run lint`            | ESLint and `prettier --check`.                                                       |
 | `npm run format`          | `prettier --write`.                                                                  |
 | `npm run typecheck`       | `tsc --noEmit` in every workspace.                                                   |
@@ -95,22 +95,20 @@ Components: `AppShell`, `Avatar`, `Board`, `Button`, `CardDialog`, `Column`, `Co
 
 ## Database
 
-Three schemas, each named `${DB_SCHEMA_PREFIX}<name>`:
+Two app schemas (plus the `sb_*` Storybook copy, see "Storybook"), each named `${DB_SCHEMA_PREFIX}<name>`:
 
 | Schema   | Tables                                                                                  |
 | -------- | --------------------------------------------------------------------------------------- |
 | `app`    | `users`, `boards`, `columns`, `cards`, `comments`, `migrations` (applied-migration log) |
 | `config` | `feature_flags` (key, enabled, description), `settings` (key, JSON value)               |
-| `mocks`  | `fixtures` (name, JSON board payload)                                                   |
 
-Migrations are plain SQL files in `packages/db/migrations/`, written with `{{app}}`, `{{config}}`
-and `{{mocks}}` placeholders for the schema names. The runner applies each file once, in order,
+Migrations are plain SQL files in `packages/db/migrations/`, written with `{{app}}` and `{{config}}`
+placeholders for the schema names (`002_drop_mocks.sql` removes the old `mocks` schema). The runner applies each file once, in order,
 inside a transaction, and records it in `<prefix>app.migrations`.
 
 Seeded feature flags: `card_comments` (on), `due_dates` (on), `wip_limits` (off), `compact_cards`
-(off). Settings include `wip_limit` = 5. Fixtures: `typical`, `empty`, `overloaded`, `long-text`,
-`rtl-hebrew`, `all-priorities` (deterministic, no randomness at runtime). The seed never overwrites
-cards, flags or settings a developer changed.
+(off). Settings include `wip_limit` = 5. The seed is deterministic (no randomness at runtime) and never
+overwrites cards, flags or settings a developer changed.
 
 Cards have dense zero-based positions per column; moving a card keeps both columns consistent.
 
@@ -137,7 +135,7 @@ request origin.
 ## Storybook
 
 ```sh
-npm run db:setup     # once, seeds mocks.fixtures
+npm run db:setup     # once, also seeds the sb_ schemas Storybook reads
 npm run storybook    # http://localhost:6006
 ```
 
@@ -147,17 +145,21 @@ compositions (Board, Column, CardDialog), the app shell at 375/768/1440 px, a li
 gallery, and the board page with MSW (loading, empty, error with retry, populated, overloaded and
 feature-flag combinations). The toolbar switches theme and text direction.
 
-**Fixtures come from the database.** The Storybook dev server reads `mocks.fixtures` with `pg`,
-validates the rows and serves them at `/__fixtures/:name`. To change a story, edit the row and
-reload:
+**One data source: the `sb_app` / `sb_config` schemas.** They are a copy of `app` / `config` with
+six scenarios (`typical`, `empty`, `overloaded`, `long-text`, `rtl-hebrew`, `all-priorities`), one
+board each; names carry a "mock" marker. The Storybook dev server reads them with `pg` and serves
+them at `/__fixtures/:name`. To change a story, edit the rows; the story reloads itself within about
+2 seconds:
 
 ```sql
-update mocks.fixtures set data = jsonb_set(data, '{columns,0,name}', '"Hello"') where name = 'typical';
+update sb_app.cards set title = 'Hello' where id = (select min(id) from sb_app.cards);
 ```
 
-If the database is unreachable the stories show an error panel and Storybook keeps running.
-`npm run build-storybook` bakes the fixtures into `__fixtures.json`, so the static site needs no
-database.
+`npm run db:reset-storybook` restores the originals (drops and recreates `sb_*` only). If `sb_` is
+missing or the database is down, the story shows one message that says to run `npm run db:setup`.
+`npm run build-storybook` bakes the scenarios into `__fixtures.json`, so the static site needs no
+database. To go back to the old JSON-fixture version, see "Going back to fixtures-main" in
+[docs/storybook.md](docs/storybook.md).
 
 Tests: `npm run test:ui` (every story, play functions and axe in headless Chromium; needs
 `npx playwright install chromium`) and `npm test` (includes the portable-stories unit test,
@@ -174,7 +176,7 @@ Details: [docs/storybook.md](docs/storybook.md).
 throwaway schema prefix (for example `t1a2b3c4_app`) and drops it with `CASCADE` afterwards.
 
 `npm run test:e2e` starts the real API and Vite (Playwright `webServer`), against a fresh schema set
-`e2e_<random>_{app,config,mocks}` that is migrated, seeded and dropped again at the end, with
+`e2e_<random>_{app,config}` that is migrated, seeded and dropped again at the end, with
 `DEVENV_KIND=e2e` and `DEVENV_USER=playwright`. It covers: seeded board, create card, keyboard
 and mouse moves (persistence checked in SQL), comments, flag toggle, env chip, RTL overflow and
 axe (light and dark). Browser setup: [docs/browser-prerequisites.md](docs/browser-prerequisites.md).

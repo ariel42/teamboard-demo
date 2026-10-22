@@ -15,10 +15,10 @@ import {
 /**
  * Read side of the Storybook mirror: builds a scenario's board payload live from `sb_app`
  * (or a throwaway test prefix) with the API's own `getBoardPayload`. Used by the Storybook dev
- * server endpoint `/__fixtures-live/:name`. Read-only, nothing is cached.
+ * server endpoint `/__fixtures/:name`. Read-only, nothing is cached.
  */
 
-export const SEED_HINT = 'Run "npm run db:seed-storybook" to create and fill the sb_ schemas.';
+export const SEED_HINT = 'Run "npm run db:setup" to create and fill the sb_ schemas.';
 
 export class LiveScenarioError extends Error {
   readonly status: number;
@@ -101,7 +101,7 @@ export interface LiveResponse {
 }
 
 /**
- * The whole answer for `/__fixtures-live/:name` and `/__fixtures-live/:name/version`, or undefined
+ * The whole answer for `/__fixtures/:name` and `/__fixtures/:name/version`, or undefined
  * when the path is not a live path. The dev server only writes it to the socket.
  * The payload response carries its own version and schema name, so the preview has no load/poll race.
  */
@@ -110,7 +110,7 @@ export async function liveResponse(
   pool: () => Pool,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<LiveResponse | undefined> {
-  const match = /^\/__fixtures-live\/([^/]+)(\/version)?\/?$/.exec(pathname);
+  const match = /^\/__fixtures\/([^/]+)(\/version)?\/?$/.exec(pathname);
   if (!match) return undefined;
   try {
     const name = decodeURIComponent(match[1] as string);

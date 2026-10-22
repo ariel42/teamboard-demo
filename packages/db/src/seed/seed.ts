@@ -1,7 +1,6 @@
 import type { Pool } from '../pool.ts';
 import { resolveSchemas } from '../schema-names.ts';
 import type { SchemaNames } from '../schema-names.ts';
-import { buildFixtures } from './fixtures.ts';
 import { TYPICAL_BOARD } from './typical.ts';
 
 export const FEATURE_FLAGS = [
@@ -24,7 +23,6 @@ export const SETTINGS: Record<string, unknown> = {
 export interface SeedResult {
   flags: number;
   settings: number;
-  fixtures: number;
   starterBoard: 'created' | 'exists';
 }
 
@@ -50,22 +48,6 @@ export async function seedConfig(pool: Pool, schemas: SchemaNames = resolveSchem
     );
   }
   return { flags: FEATURE_FLAGS.length, settings: Object.keys(SETTINGS).length };
-}
-
-/** Fixtures are derived from code, so they are always refreshed (only when they changed). */
-export async function seedMocks(pool: Pool, schemas: SchemaNames = resolveSchemas()) {
-  const fixtures = buildFixtures();
-  for (const f of fixtures) {
-    await pool.query(
-      `insert into ${schemas.mocks}.fixtures (name, description, data)
-       values ($1, $2, $3::jsonb)
-       on conflict (name) do update set description = excluded.description, data = excluded.data
-         where ${schemas.mocks}.fixtures.description is distinct from excluded.description
-            or ${schemas.mocks}.fixtures.data is distinct from excluded.data`,
-      [f.name, f.description, JSON.stringify(f.data)],
-    );
-  }
-  return { fixtures: fixtures.length };
 }
 
 const SEED_BASE_TIME = Date.parse('2026-10-12T09:00:00Z');
@@ -169,7 +151,6 @@ export async function seedAll(
   schemas: SchemaNames = resolveSchemas(),
 ): Promise<SeedResult> {
   const config = await seedConfig(pool, schemas);
-  const mocks = await seedMocks(pool, schemas);
   const starterBoard = await seedStarterBoard(pool, schemas);
-  return { ...config, ...mocks, starterBoard };
+  return { ...config, starterBoard };
 }

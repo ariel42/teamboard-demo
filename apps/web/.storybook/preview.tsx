@@ -5,13 +5,7 @@ import '../src/styles/tokens.css';
 import '../src/styles/global.css';
 import { applyDirection } from '../src/lib/direction';
 import { applyTheme, storeThemePreference } from '../src/lib/theme';
-import {
-  DATA_SOURCES,
-  DEFAULT_DATA_SOURCE,
-  LiveBadge,
-  LiveRefresh,
-  resolveDataSource,
-} from '../src/stories/support/dataSource';
+import { LiveRefresh } from '../src/stories/support/liveRefresh';
 import type { LiveInfo } from '../src/stories/support/fixtures';
 import { FixtureErrorPanel } from '../src/stories/support/FixtureErrorPanel';
 import { fixtureLoader } from '../src/stories/support/fixtures';
@@ -35,7 +29,7 @@ const withDirection: Decorator = (Story, context) => {
   return <Story />;
 };
 
-/** Replaces the story with a clear panel when its database fixture could not be loaded. */
+/** Replaces the story with one clear message when its sb_ scenario could not be read. */
 const withFixtureError: Decorator = (Story, context) => {
   const error = context.loaded.fixtureError as string | undefined;
   if (!error) return <Story />;
@@ -45,22 +39,16 @@ const withFixtureError: Decorator = (Story, context) => {
 };
 
 /**
- * Toolbar "Data": with "Live schema" a small badge shows where the data came from, and (dev server,
- * story view only) the scenario is polled so an edit in sb_app reloads the preview. Not used in
- * the Vitest run, where a reload would only break the test.
+ * Auto-refresh (dev server, story view only): polls the scenario every ~2 s, so an edit in sb_app
+ * reloads the preview. If the scenario could not be read it polls until it can. Off in the Vitest
+ * run (a reload would break the test) and in a static build (no server).
  */
-const withLiveData: Decorator = (Story, context) => {
-  if (resolveDataSource(context.globals.dataSource) !== 'live') return <Story />;
+const withLiveRefresh: Decorator = (Story, context) => {
   const live = context.loaded.live as LiveInfo | undefined;
-  // 'ok' polls for edits, 'error' polls until the schema can be read ('static' has no server).
-  const poll =
-    ((live?.state === 'ok' && live.version !== undefined) || live?.state === 'error') &&
-    context.viewMode === 'story' &&
-    !import.meta.env.VITEST;
+  const poll = live && context.viewMode === 'story' && !import.meta.env.VITEST;
   return (
     <>
       <Story />
-      <LiveBadge live={live} />
       {poll ? (
         <LiveRefresh
           key={context.id}
@@ -101,30 +89,15 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
-    dataSource: {
-      description:
-        'Where board data comes from: fixtures (mocks.fixtures) or the live sb_app schema',
-      toolbar: {
-        title: 'Data',
-        icon: 'database',
-        items: [
-          { value: DATA_SOURCES[0], title: 'Fixtures' },
-          { value: DATA_SOURCES[1], title: 'Live schema' },
-        ],
-        dynamicTitle: true,
-      },
-    },
   },
-  initialGlobals: { theme: 'light', dir: 'ltr', dataSource: DEFAULT_DATA_SOURCE },
-  decorators: [withLiveData, withFixtureError, withDirection, withTheme],
+  initialGlobals: { theme: 'light', dir: 'ltr' },
+  decorators: [withFixtureError, withLiveRefresh, withDirection, withTheme],
   loaders: [
     mswLoader(getWorker),
-    // parameters.fixture = 'typical' loads that mocks.fixtures row into context.loaded.fixture
-    // With the toolbar "Data: Live schema" the board is read from sb_app instead (see dataSource.tsx)
-    async ({ parameters, globals }) => {
+    // parameters.fixture = 'typical' loads that scenario from the sb_ schemas into context.loaded.fixture
+    async ({ parameters }) => {
       const name = parameters.fixture as string | undefined;
-      const source = resolveDataSource(globals.dataSource);
-      return name ? await fixtureLoader(name, source) : {};
+      return name ? await fixtureLoader(name) : {};
     },
   ],
   beforeEach: async ({ parameters, loaded }) => {

@@ -8,7 +8,7 @@ testing approaches and links to the stories that demonstrate them.
 
 ```sh
 npm ci
-npm run db:setup      # once: creates and seeds mocks.fixtures and the sb_ mirror (Live schema)
+npm run db:setup      # once: migrates and seeds app/config and the sb_ schemas Storybook reads
 npm run storybook     # http://localhost:6006 (no browser opened, localhost only, no prompts)
 ```
 
@@ -24,7 +24,7 @@ database to be served (see "Static build").
 | Title                                        | Contents                                                                                        |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `Components/*` (14 components)               | Single components with plain props: every state and variant, plus play tests for interactions.  |
-| `Compositions/Board`, `Column`, `CardDialog` | Several components together, fed by DB fixtures: typical, empty, long text, RTL, overloaded.    |
+| `Compositions/Board`, `Column`, `CardDialog` | Several components together, fed by `sb_` data: typical, empty, long text, RTL, overloaded.     |
 | `Layout/AppShell`                            | The app shell at 375, 768 and 1440 px, dark and RTL, mobile menu.                               |
 | `Layout/Gallery`                             | Light, dark, dark RTL and light RTL boards on one page.                                         |
 | `Pages/BoardPage`                            | The real routes with MSW: loading, empty, error with retry, populated, overloaded, flag combos. |
@@ -35,62 +35,41 @@ story. Viewports are mobile (375), tablet (768) and desktop (1440).
 
 ## Where the data comes from
 
+One source: the `sb_app` / `sb_config` schemas. They have the same tables as `app` / `config` and
+hold six scenarios (`typical`, `empty`, `overloaded`, `long-text`, `rtl-hebrew`, `all-priorities`),
+one board each. Nothing else feeds the stories.
+
 ```
-Postgres mocks.fixtures --pg--> Vite middleware --zod--> GET /__fixtures/:name --fetch--> story loader
+Postgres sb_app/sb_config --pg--> Vite middleware --zod--> GET /__fixtures/:name --fetch--> story loader
 ```
 
-- The table `mocks.fixtures(name, description, data jsonb)` is seeded by `npm run db:seed`.
-  Fixtures: `typical`, `empty`, `long-text`, `overloaded`, `rtl-hebrew`, `all-priorities`.
-- `apps/web/.storybook/fixtures-plugin.ts` is a Vite plugin (registered in `viteFinal`). It reads
-  the table with `pg`, validates each row with `boardPayloadSchema` and answers
-  `GET /__fixtures` (list) and `GET /__fixtures/:name`.
-- A story declares `parameters: { fixture: 'typical' }`. A global loader in
-  `.storybook/preview.tsx` calls `loadFixture(name)` (in `src/stories/support/fixtures.ts`) and the
-  story receives the board in `loaded.fixture`.
+- `apps/web/.storybook/fixtures-plugin.ts` is a Vite plugin (registered in `viteFinal`). It builds
+  the board of a scenario from the `sb_` tables on every request, validates it with
+  `boardPayloadSchema` and answers `GET /__fixtures/:name` (`Cache-Control: no-store`) and
+  `GET /__fixtures/:name/version` (an md5 of the payload).
+- A story declares `parameters: { fixture: 'typical' }`. A global loader in `.storybook/preview.tsx`
+  calls `loadFixture(name)` (in `src/stories/support/fixtures.ts`) and the story receives the board
+  in `loaded.fixture`.
 - Page stories use MSW instead: `parameters.mockApi` installs a stateful fake API (moves, new
-  cards, comments and flags work) built from the same fixtures.
+  cards, comments and flags work) that starts from the same board. Writes stay in the browser and
+  never reach `sb_app`.
 
-### Toolbar "Data" switch
+### Edit with SQL, see it in the story
 
-The toolbar has a "Data" switch: "Fixtures" (the default) or "Live schema".
+```sql
+-- rename the first card of the "typical" scenario
+update sb_app.cards set title = 'Edited in SQL'
+ where id = (select min(c.id) from sb_app.cards c
+               join sb_app.columns col on col.id = c.column_id
+              where col.board_id = (select (value #>> '{}')::int from sb_config.settings
+                                     where key = 'storybook_scenario_typical'));
+```
 
-- **Fixtures** is everything described above. No extra requests, no polling.
-- **Live schema** builds the board of the story's fixture (`typical`, `empty`, ...) from the real
-  `sb_app` / `sb_config` tables on every load, through `GET /__fixtures-live/:name`
-  (`Cache-Control: no-store`). A green badge "Live: sb_app" shows in the corner of the story. Page
-  stories (MSW) get the same live board as their starting data; writes in the fake API stay in the
-  browser and never reach `sb_app`.
-- **Edit with SQL, see it in the story.** The story reloads by itself (about 2 s) after the data
-  changes; it polls `GET /__fixtures-live/:name/version` (an md5 of the payload) and reloads the
-  preview when it changes, keeping the toolbar choices. Polling stops when you switch back to
-  Fixtures or open another story.
+In the dev server the story reloads by itself (about 2 s): it polls `/__fixtures/:name/version` and
+reloads the preview when the hash changes, keeping the toolbar choices (theme, direction). Polling
+stops when you open another story. Reset your edits with `npm run db:reset-storybook`.
 
-  ```sql
-  -- rename the first card of the "typical" scenario
-  update sb_app.cards set title = 'Edited in SQL'
-   where id = (select min(c.id) from sb_app.cards c
-                 join sb_app.columns col on col.id = c.column_id
-                where col.board_id = (select (value #>> '{}')::int from sb_config.settings
-                                       where key = 'storybook_scenario_typical'));
-  ```
-
-- **Reset** your edits with `npm run db:reset-storybook`.
-- If `sb_` is not seeded or the database is down, the endpoint answers 503 with a hint
-  (`npm run db:seed-storybook`). The story then shows the fixture and the badge turns red with the
-  message. When you seed `sb_`, the story recovers by itself (it keeps polling and reloads once).
-- In the static build the badge says "Live schema needs the dev server" and the fixtures are used.
-- The reload keeps the choices you made in the toolbar, not the ones a story sets itself.
-- The live stories under `Layout/Data source` are hidden from the sidebar and Docs (tags `!dev`,
-  `!autodocs`) but run in `npm run test:ui`, which seeds and drops its own throwaway `t<hex>_sb_`
-  schema, so the run does not depend on your `sb_` data.
-- Known gaps: the live payload lists every user in `sb_app`, and ids are the real serial ids (not the
-  fixture ids).
-
-### The `sb_app` mirror
-
-`sb_app` / `sb_config` are real schemas with the same tables as `app` / `config` (`sb_mocks` is
-created by the migration runner and stays empty). They hold the six fixture scenarios as real rows,
-one board per scenario, so you can edit a row there and leave the app data alone.
+### The `sb_` schemas
 
 ```bash
 npm run db:seed-storybook    # migrate sb_ and add any scenario board that is missing
@@ -99,46 +78,48 @@ npm run db:reset-storybook   # drop and recreate sb_* only, then reseed (loses y
 
 Every board and column name in `sb_app` carries a visible "mock" marker so the rows are never
 mistaken for real app data: boards get ` · mock` ("Sprint 24 · mock"), columns ` (mock)` ("To do
-(mock)"). The Hebrew scenario uses the same Latin marker ("ספרינט 24 · mock", "לביצוע (mock)"): it
-reads the same in every scenario, and mixed scripts are part of what the RTL board exercises. Card
-titles and the `mocks.fixtures` JSON keep their plain text. Reset (`db:reset-storybook`) renames old
-`sb_` rows to the marked names.
+(mock)"). The Hebrew scenario uses the same Latin marker ("ספרינט 24 · mock", "לביצוע (mock)").
 
 Scenario boards are insert-only: a scenario whose board exists is not touched, so edits survive
-reruns. Config rows (flags, settings) follow the `db:seed` rules. The
-board of each scenario is recorded in `sb_config.settings` as `storybook_scenario_<name>` (the board
-id). `db:setup` ends with the same insert-only seed of `sb_*` (a fresh clone gets a working Live mode;
-a rerun changes nothing). `db:seed` and `db:reset` never touch `sb_*`, and the two commands above
-never touch `app`, `config` or `mocks`. The prefix is fixed to `sb_`; `DB_SCHEMA_PREFIX` is ignored. Only the tests override it
+reruns. The board of each scenario is recorded in `sb_config.settings` as
+`storybook_scenario_<name>`. `db:setup` ends with the same insert-only seed. `db:seed` and
+`db:reset` never touch `sb_*`, and the two commands above never touch `app` or `config`. The prefix
+is fixed to `sb_`; `DB_SCHEMA_PREFIX` is ignored. Only the tests override it
 (`TEAMBOARD_STORYBOOK_PREFIX`, a throwaway `t<hex>_sb_` prefix), so `npm test` never touches your
 real `sb_*` rows; reset refuses any other prefix.
 
-### Edit a fixture and see it in the story
+Known gap: the payload lists every user in `sb_app`, and ids are the real serial ids.
 
-```sql
-update mocks.fixtures
-   set data = jsonb_set(data, '{columns,0,name}', '"Renamed in SQL"')
- where name = 'typical';
-```
+### When `sb_` is missing or the database is unreachable
 
-Reload the story (for example `Compositions/Board`, "Typical"); the first column is renamed. Data
-is read on every request, so Storybook does not need a restart. A row that does not match the
-schema is rejected with HTTP 422 and a message naming the offending field.
-
-### When the database is unreachable
-
-The endpoint answers 503 with `{ "error": "Cannot reach the database: ..." }`, and every story that
-needs a fixture shows an error panel ("This story needs the database") instead of a blank page.
-Storybook itself keeps running and stories that use plain props still render. Under the test
-runner the same situation throws, so tests fail loudly instead of passing on an error panel.
+The endpoint answers 503 with a message (`Run "npm run db:setup" to create and fill the sb_
+schemas.`, or `Cannot reach the database: ...`), and every story that needs data shows one error
+panel with that hint instead of a blank page. The preview keeps polling: once `sb_` is seeded, the
+story recovers by itself. Storybook keeps running and stories with plain props still render. Under
+the test runner the same situation throws, so tests fail loudly.
 
 ### Static build
 
-`npm run build-storybook` pre-renders all fixtures (reading the DB at build time) into
-`storybook-static/__fixtures.json`, and the client reads that file instead of `/__fixtures/...`.
-The built site therefore works from any static host with no database. Fixture changes need a
-rebuild. The build fails if `DATABASE_URL` is missing or a fixture is invalid. Live schema mode is not
-baked in: it needs the dev server.
+`npm run build-storybook` reads the six scenarios from `sb_` at build time and writes them to
+`storybook-static/__fixtures.json`; the client reads that file instead of `/__fixtures/...`. The
+built site needs no database, no auto-refresh, and a data change needs a rebuild. The build fails if
+`DATABASE_URL` is missing or `sb_` is not seeded (run `npm run db:setup` first; CI does).
+
+### Going back to fixtures-main
+
+The git tag `fixtures-main` is the last version where Storybook read JSON fixtures from
+`mocks.fixtures`. Migration `002_drop_mocks.sql` drops that table, so the old code cannot run on a
+database that has applied it. To go back:
+
+```sh
+npm run db:restore-fixtures   # on this branch: recreates an empty mocks.fixtures, forgets 002
+git switch --detach fixtures-main   # or: git checkout -b old-fixtures fixtures-main
+npm ci && npm run db:setup    # the old seed refills mocks.fixtures; app data is untouched
+```
+
+`sb_*` stays in the database and the old code ignores it. To come back to the new version, check
+out the branch (or main after the merge) and run `npm run db:setup`: it applies 002 again. Proven
+on a throwaway prefix: 6 fixtures back after the round trip, `app` rows unchanged.
 
 ## Tests
 
@@ -156,7 +137,7 @@ Chromium: `npx playwright install --with-deps chromium` (see
 
 The recommended extension `joshbolduc.story-explorer` lists the stories from the Storybook it finds or
 starts itself (it runs `npm run storybook` and reads the port with `lsof`, so `lsof` must be installed).
-Fixture-backed stories need the database variables in the environment that started it.
+Stories that need data need the database variables in the environment that started it.
 
 - The script uses `--ci` so Storybook never waits for input (a prompt in the extension's hidden task
   terminal looks like an endless "Loading"), and no `--host`, so it listens on localhost only.

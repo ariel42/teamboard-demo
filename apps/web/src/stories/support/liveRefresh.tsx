@@ -1,59 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { fetchLiveVersion, LIVE_SCHEMA } from './fixtures';
-import type { LiveInfo } from './fixtures';
+import { fetchLiveVersion } from './fixtures';
 
-/** Toolbar "Data": where the stories get their board data from. */
-export const DATA_SOURCES = ['fixtures', 'live'] as const;
-export type DataSource = (typeof DATA_SOURCES)[number];
-
-/** Today's behavior: JSON fixtures from mocks.fixtures. Keep this the default. */
-export const DEFAULT_DATA_SOURCE: DataSource = 'fixtures';
-
-/** Anything but an explicit 'live' means fixtures. */
-export function resolveDataSource(value: unknown): DataSource {
-  return value === 'live' ? 'live' : DEFAULT_DATA_SOURCE;
-}
-
-export const LIVE_STATIC_TEXT = 'Live schema needs the dev server';
 export const LIVE_POLL_MS = 2000;
-
-/** Text of the live badge for one story (state comes from the loader, see LiveInfo). */
-export function liveBadgeText(live: LiveInfo | undefined): string {
-  if (!live) return `Live: ${LIVE_SCHEMA} (this story uses no board data)`;
-  if (live.state === 'static') return LIVE_STATIC_TEXT;
-  if (live.state === 'error')
-    return `Live: ${live.schema} failed, showing fixtures. ${live.error ?? ''}`.trim();
-  return `Live: ${live.schema}`;
-}
-
-/** Small corner badge, shown only when "Live schema" is selected. Does not affect the layout. */
-export function LiveBadge({ live }: { live?: LiveInfo }) {
-  const bad = live?.state === 'error';
-  return (
-    <div
-      role="status"
-      data-testid="live-data-badge"
-      data-state={live?.state ?? 'none'}
-      style={{
-        position: 'fixed',
-        insetBlockEnd: 8,
-        insetInlineEnd: 8,
-        zIndex: 1000,
-        maxWidth: 'min(520px, calc(100vw - 16px))',
-        padding: '2px 8px',
-        border: `1px solid ${bad ? '#b42318' : '#067647'}`,
-        borderRadius: 4,
-        background: bad ? '#fef3f2' : '#ecfdf3',
-        color: bad ? '#7a271a' : '#054f31',
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: 12,
-        pointerEvents: 'none',
-      }}
-    >
-      {liveBadgeText(live)}
-    </div>
-  );
-}
 
 /**
  * Polls the version of a live scenario and calls `onChange` once when it differs from
@@ -127,8 +75,8 @@ function mayRecover(id: string, now = Date.now()): boolean {
 }
 
 /**
- * Renders nothing; polls while mounted (live mode, one story) and reloads on a change. With no
- * `version` (the live load failed) it waits for the schema to become readable and reloads once.
+ * Renders nothing; polls while mounted (dev server, one story) and reloads on a change. With no
+ * `version` (the load failed) it waits for the schema to become readable and reloads once.
  */
 export function LiveRefresh({
   id,

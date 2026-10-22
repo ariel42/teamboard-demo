@@ -118,17 +118,17 @@ in the browser run.
 
 Pixel snapshots are only useful when they are deterministic. Here they would not be, yet:
 fonts and anti-aliasing differ between a laptop and the CI image, the board shows relative dates
-("in 2 days") that follow the real clock, and the fixtures come from a mutable database table.
+("in 2 days") that follow the real clock, and the data comes from mutable database tables.
 Baselines would flap and teach people to ignore failures. The usual fix is a hosted service that renders
 in a pinned browser (Chromatic) with a frozen clock; the stories are ready for it, because they are
 already isolated and parameterised.
 
 ## Where the data comes from
 
-Board stories load rows of the `mocks.fixtures` table from Postgres through the Storybook dev server
-(`/__fixtures/typical`, and so on). Edit a row, reload the story, and it changes. Page stories
-serve the same payloads through MSW, with a stateful fake API so moves, new cards, comments and flags work.
-In a static `build-storybook` the fixtures are baked into `__fixtures.json`, so the built Storybook needs no database.
+Board stories load their data from the `sb_app` / `sb_config` schemas in Postgres through the Storybook
+dev server (`/__fixtures/typical`, and so on). Edit a row with SQL and the story reloads within about 2 seconds.
+Page stories serve the same payloads through MSW, with a stateful fake API so moves, new cards, comments and flags work.
+In a static `build-storybook` the scenarios are baked into `__fixtures.json`, so the built Storybook needs no database.
 
 ## Toolbar
 

@@ -13,9 +13,7 @@ export async function migrateStep(pool: Pool, schemas: SchemaNames) {
 
 export async function seedStep(pool: Pool, schemas: SchemaNames) {
   const r = await seedAll(pool, schemas);
-  console.log(
-    `seed: ${r.flags} flags, ${r.settings} settings, ${r.fixtures} fixtures, starter board ${r.starterBoard}`,
-  );
+  console.log(`seed: ${r.flags} flags, ${r.settings} settings, starter board ${r.starterBoard}`);
 }
 
 /**

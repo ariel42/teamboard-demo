@@ -8,6 +8,7 @@ export interface SchemaNames {
   /** Already double-quoted, safe to interpolate into SQL. */
   app: string;
   config: string;
+  /** Legacy: only migrations 001/002 use it (002 drops the schema); nothing reads or writes it. */
   mocks: string;
   /** Unquoted names, for pg_catalog lookups and logging. */
   raw: { app: string; config: string; mocks: string };

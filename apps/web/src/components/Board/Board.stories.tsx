@@ -5,9 +5,9 @@ import { StatefulBoard } from '../../stories/support/StatefulBoard';
 import type { BoardPayload } from '../../lib/types';
 
 /**
- * Every story here renders the same presentational Board with a different row of the
- * `mocks.fixtures` table. The data comes from Postgres through the Storybook dev server (see
- * "How we test UI"), so editing a fixture row and reloading changes the story.
+ * Every story here renders the same presentational Board with a different scenario of the
+ * `sb_` schemas. The data comes from Postgres through the Storybook dev server (see "How we test
+ * UI"), so editing a row in `sb_app` changes the story. Column names carry the "(mock)" marker.
  */
 const meta = {
   title: 'Compositions/Board',
@@ -53,7 +53,7 @@ export const KeyboardMove: Story = {
       card?.focus();
       await userEvent.keyboard(' ');
       await waitFor(() =>
-        expect(live()).toHaveTextContent(`card ${title} is now in column Backlog`),
+        expect(live()).toHaveTextContent(`card ${title} is now in column Backlog (mock)`),
       );
     });
     await step('move it right with the arrow keys until it is over In Progress', async () => {
@@ -61,7 +61,9 @@ export const KeyboardMove: Story = {
       await waitFor(
         async () => {
           await userEvent.keyboard('{ArrowRight}');
-          await expect(live()).toHaveTextContent(`card ${title} is now in column In Progress`);
+          await expect(live()).toHaveTextContent(
+            `card ${title} is now in column In Progress (mock)`,
+          );
         },
         { timeout: 6000 },
       );
@@ -69,10 +71,14 @@ export const KeyboardMove: Story = {
     await step('drop it with Space', async () => {
       await userEvent.keyboard(' ');
       await waitFor(() =>
-        expect(live()).toHaveTextContent(`Dropped card ${title} in column In Progress`),
+        expect(live()).toHaveTextContent(`Dropped card ${title} in column In Progress (mock)`),
       );
-      await expect(cardsIn('In Progress').some((c) => c.textContent?.includes(title))).toBe(true);
-      await expect(cardsIn('Backlog').some((c) => c.textContent?.includes(title))).toBe(false);
+      await expect(cardsIn('In Progress (mock)').some((c) => c.textContent?.includes(title))).toBe(
+        true,
+      );
+      await expect(cardsIn('Backlog (mock)').some((c) => c.textContent?.includes(title))).toBe(
+        false,
+      );
       await expect(args.onMoveCard).toHaveBeenCalledOnce();
     });
   },
@@ -81,7 +87,7 @@ export const KeyboardMove: Story = {
 export const AddCardInColumn: Story = {
   play: async ({ canvasElement, step }) => {
     const canvas = within(canvasElement);
-    const backlog = within(canvas.getByRole('region', { name: 'Backlog' }));
+    const backlog = within(canvas.getByRole('region', { name: 'Backlog (mock)' }));
     await step('open the composer in Backlog and add a card', async () => {
       await userEvent.click(backlog.getByRole('button', { name: /add card/i }));
       await userEvent.type(

@@ -62,14 +62,12 @@ describe('db:setup CLI seeds the Storybook mirror (real Postgres, spawned proces
     const lines = stdout.trim().split('\n');
     expect(lines).toHaveLength(3);
     expect(lines[0]).toMatch(/^migrate: applied /);
-    expect(lines[1]).toMatch(
-      /^seed: \d+ flags, \d+ settings, \d+ fixtures, starter board created$/,
-    );
+    expect(lines[1]).toMatch(/^seed: \d+ flags, \d+ settings, starter board created$/);
     expect(lines[2]).toBe(`storybook: ${mirror.raw.app} 6 scenarios (6 created)`);
 
     // DB_SCHEMA_PREFIX schemas: the normal setup result, no mirror inside them.
     expect(await count(`select count(*)::int n from ${t.schemas.app}.boards`)).toBe(1);
-    expect(await count(`select count(*)::int n from ${t.schemas.mocks}.fixtures`)).toBe(6);
+    expect(await schemaExists(t.schemas.raw.mocks)).toBe(false);
     // The mirror: six scenario boards, every board and column name marked as mock.
     expect(await count(`select count(*)::int n from ${mirror.app}.boards`)).toBe(6);
     expect(

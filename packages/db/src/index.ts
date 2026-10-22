@@ -6,14 +6,7 @@ export * from './migrate.ts';
 export * from './repo.ts';
 export { buildFixtures } from './seed/fixtures.ts';
 export type { Fixture } from './seed/fixtures.ts';
-export {
-  FEATURE_FLAGS,
-  SETTINGS,
-  seedAll,
-  seedConfig,
-  seedMocks,
-  seedStarterBoard,
-} from './seed/seed.ts';
+export { FEATURE_FLAGS, SETTINGS, seedAll, seedConfig, seedStarterBoard } from './seed/seed.ts';
 export type { SeedResult } from './seed/seed.ts';
 export {
   STORYBOOK_PREFIX,

@@ -30,7 +30,7 @@ export const boardPayloadColumnSchema = z.strictObject({
   cards: z.array(boardPayloadCardSchema),
 });
 
-/** Validates the board payload (GET /api/boards/:id and every mocks fixture). */
+/** Validates the board payload (GET /api/boards/:id and every Storybook scenario). */
 export const boardPayloadSchema = z.strictObject({
   board: z.strictObject({
     id: z.number().int().positive(),

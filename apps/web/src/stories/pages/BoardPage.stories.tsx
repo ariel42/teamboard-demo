@@ -25,7 +25,7 @@ export const Populated: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(await canvas.findByRole('heading', { level: 1 })).toBeInTheDocument();
-    await expect(await canvas.findByRole('region', { name: 'Backlog' })).toBeInTheDocument();
+    await expect(await canvas.findByRole('region', { name: 'Backlog (mock)' })).toBeInTheDocument();
   },
 };
 
@@ -78,7 +78,7 @@ export const Rtl: Story = { parameters: { fixture: 'rtl-hebrew' }, globals: { di
 export const AddCardThroughApi: Story = {
   play: async ({ canvasElement, step }) => {
     const canvas = within(canvasElement);
-    const backlog = await canvas.findByRole('region', { name: 'Backlog' });
+    const backlog = await canvas.findByRole('region', { name: 'Backlog (mock)' });
     await step('add a card from the column', async () => {
       await userEvent.click(within(backlog).getByRole('button', { name: /add card/i }));
       await userEvent.type(within(backlog).getByRole('textbox'), 'Write the rollout plan{Enter}');

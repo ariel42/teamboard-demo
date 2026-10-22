@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { boardPayloadSchema, buildFixtures, createRepo, seedAll } from '../src/index.ts';
+import { buildFixtures, createRepo, seedAll } from '../src/index.ts';
 import type { Repo } from '../src/index.ts';
 import { createTestSchema } from '../src/testing.ts';
 import type { TestSchema } from '../src/testing.ts';
@@ -27,11 +27,10 @@ describe('seed', () => {
       comments: await q(`select count(*)::int n from ${s.app}.comments`),
       flags: await q(`select count(*)::int n from ${s.config}.feature_flags`),
       settings: await q(`select count(*)::int n from ${s.config}.settings`),
-      fixtures: await q(`select count(*)::int n from ${s.mocks}.fixtures`),
     };
   };
 
-  it('seeds config, fixtures and the starter board', async () => {
+  it('seeds config and the starter board', async () => {
     const result = await seedAll(t.pool, t.schemas);
     expect(result.starterBoard).toBe('created');
     const c = await counts();
@@ -41,7 +40,6 @@ describe('seed', () => {
       columns: 4,
       flags: 4,
       settings: 3,
-      fixtures: 6,
     });
     expect(c.cards).toBeGreaterThanOrEqual(12);
     expect(c.comments).toBeGreaterThan(0);
@@ -53,18 +51,6 @@ describe('seed', () => {
       wip_limits: false,
     });
     expect(await repo.getSettings()).toMatchObject({ app_title: 'Teamboard', wip_limit: 5 });
-  });
-
-  it('stores fixtures that equal the generated board payloads', async () => {
-    const { rows } = await t.pool.query<{ name: string; data: unknown }>(
-      `select name, data from ${t.schemas.mocks}.fixtures order by name`,
-    );
-    const expected = buildFixtures().sort((a, b) => a.name.localeCompare(b.name));
-    expect(rows.map((r) => r.name)).toEqual(expected.map((f) => f.name));
-    for (const [i, row] of rows.entries()) {
-      expect(boardPayloadSchema.safeParse(row.data).success).toBe(true);
-      expect(row.data).toEqual(expected[i]!.data);
-    }
   });
 
   it('builds the starter board from the typical fixture', async () => {

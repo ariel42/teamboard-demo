@@ -1,4 +1,4 @@
-/** Shown instead of a story when its database fixture could not be loaded. */
+/** Shown instead of a story when its sb_ scenario could not be read (one message, with the hint). */
 export function FixtureErrorPanel({ message }: { message: string }) {
   return (
     <div
@@ -18,9 +18,9 @@ export function FixtureErrorPanel({ message }: { message: string }) {
       <h2 style={{ margin: '0 0 8px', fontSize: 18 }}>This story needs the database</h2>
       <p style={{ margin: '0 0 8px' }}>{message}</p>
       <p style={{ margin: 0, fontSize: 14 }}>
-        Fixtures are read from <code>mocks.fixtures</code>. Check that <code>DATABASE_URL</code> is
-        set, run <code>npm run db:setup</code>, then restart Storybook. Stories that use plain props
-        keep working without a database.
+        The data comes from the <code>sb_app</code> schema. Run <code>npm run db:setup</code> (and
+        check that <code>DATABASE_URL</code> is set). This page reloads by itself once the schema
+        can be read. Stories that use plain props work without a database.
       </p>
     </div>
   );

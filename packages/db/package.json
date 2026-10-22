@@ -15,6 +15,7 @@
     "seed": "tsx src/cli/seed.ts",
     "setup": "tsx src/cli/setup.ts",
     "reset": "tsx src/cli/reset.ts",
+    "restore-fixtures": "tsx src/cli/restore-fixtures.ts",
     "seed-storybook": "tsx src/cli/seed-storybook.ts",
     "reset-storybook": "tsx src/cli/seed-storybook.ts --reset",
     "typecheck": "tsc --noEmit",
