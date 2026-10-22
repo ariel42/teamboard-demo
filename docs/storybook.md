@@ -8,7 +8,7 @@ testing approaches and links to the stories that demonstrate them.
 
 ```sh
 npm ci
-npm run db:setup      # once: creates and seeds mocks.fixtures
+npm run db:setup      # once: creates and seeds mocks.fixtures and the sb_ mirror (Live schema)
 npm run storybook     # http://localhost:6006 (no browser opened, localhost only, no prompts)
 ```
 
@@ -97,11 +97,19 @@ npm run db:seed-storybook    # migrate sb_ and add any scenario board that is mi
 npm run db:reset-storybook   # drop and recreate sb_* only, then reseed (loses your edits)
 ```
 
+Every board and column name in `sb_app` carries a visible "mock" marker so the rows are never
+mistaken for real app data: boards get ` · mock` ("Sprint 24 · mock"), columns ` (mock)` ("To do
+(mock)"). The Hebrew scenario uses the same Latin marker ("ספרינט 24 · mock", "לביצוע (mock)"): it
+reads the same in every scenario, and mixed scripts are part of what the RTL board exercises. Card
+titles and the `mocks.fixtures` JSON keep their plain text. Reset (`db:reset-storybook`) renames old
+`sb_` rows to the marked names.
+
 Scenario boards are insert-only: a scenario whose board exists is not touched, so edits survive
 reruns. Config rows (flags, settings) follow the `db:seed` rules. The
 board of each scenario is recorded in `sb_config.settings` as `storybook_scenario_<name>` (the board
-id). `db:setup`, `db:seed` and `db:reset` never touch `sb_*`, and these two commands never touch
-`app`, `config` or `mocks`. The prefix is fixed to `sb_`; `DB_SCHEMA_PREFIX` is ignored. Only the tests override it
+id). `db:setup` ends with the same insert-only seed of `sb_*` (a fresh clone gets a working Live mode;
+a rerun changes nothing). `db:seed` and `db:reset` never touch `sb_*`, and the two commands above
+never touch `app`, `config` or `mocks`. The prefix is fixed to `sb_`; `DB_SCHEMA_PREFIX` is ignored. Only the tests override it
 (`TEAMBOARD_STORYBOOK_PREFIX`, a throwaway `t<hex>_sb_` prefix), so `npm test` never touches your
 real `sb_*` rows; reset refuses any other prefix.
 

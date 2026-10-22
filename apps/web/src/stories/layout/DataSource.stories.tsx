@@ -65,7 +65,8 @@ export const LiveBoard: StoryObj<typeof StatefulBoard> = {
   play: async ({ canvasElement, loaded }) => {
     await expect((loaded.live as LiveInfo).state).toBe('ok');
     const canvas = within(canvasElement);
-    await expect(await canvas.findByRole('region', { name: 'Backlog' })).toBeInTheDocument();
+    // sb_ column names carry the mock marker, so nobody takes the rows for real app data.
+    await expect(await canvas.findByRole('region', { name: 'Backlog (mock)' })).toBeInTheDocument();
     await expect(await within(document.body).findByTestId('live-data-badge')).toHaveAttribute(
       'data-state',
       'ok',
@@ -88,7 +89,8 @@ export const LivePage: StoryObj<typeof PageHarness> = {
     await expect(await canvas.findByRole('heading', { level: 1 })).toHaveTextContent(
       board.board.name,
     );
-    await expect(await canvas.findByRole('region', { name: 'Backlog' })).toBeInTheDocument();
+    await expect(board.board.name).toMatch(/mock/);
+    await expect(await canvas.findByRole('region', { name: 'Backlog (mock)' })).toBeInTheDocument();
     await waitFor(() =>
       expect(within(document.body).getByTestId('live-data-badge')).toHaveAttribute(
         'data-state',

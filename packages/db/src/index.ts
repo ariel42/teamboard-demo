@@ -18,6 +18,8 @@ export type { SeedResult } from './seed/seed.ts';
 export {
   STORYBOOK_PREFIX,
   isStorybookPrefix,
+  mockBoardName,
+  mockColumnName,
   resetStorybook,
   scenarioSettingKey,
   seedStorybook,

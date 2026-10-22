@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   buildFixtures,
   createRepo,
+  mockBoardName,
+  mockColumnName,
   resetStorybook,
   resolveSchemas,
   scenarioSettingKey,
@@ -61,13 +63,28 @@ describe('storybook mirror seed (real Postgres, throwaway prefix)', () => {
       expect(payload, f.name).not.toBeNull();
       const cards = payload!.columns.flatMap((c) => c.cards);
       expect(cards.length, f.name).toBe(EXPECTED_CARDS[f.name]);
-      expect(payload!.board.name).toBe(f.data.board.name);
-      expect(payload!.columns.map((c) => c.name)).toEqual(f.data.columns.map((c) => c.name));
+      expect(payload!.board.name).toBe(mockBoardName(f.data.board.name));
+      expect(payload!.columns.map((c) => c.name)).toEqual(
+        f.data.columns.map((c) => mockColumnName(c.name)),
+      );
       // Same cards, in the same order, with the same visible fields as the fixture.
       const strip = (cs: typeof cards) =>
         cs.map(({ id: _id, assignee, ...rest }) => ({ ...rest, assignee: assignee?.name ?? null }));
       expect(strip(cards), f.name).toEqual(strip(f.data.columns.flatMap((c) => c.cards)));
     }
+  });
+
+  it('marks every board and column name as mock, and leaves card titles alone', async () => {
+    const names = await t.pool.query<{ kind: string; name: string }>(
+      `select 'board' kind, name from ${t.schemas.app}.boards
+       union all select 'column', name from ${t.schemas.app}.columns`,
+    );
+    expect(names.rows.length).toBeGreaterThan(6);
+    for (const r of names.rows) expect(r.name, `${r.kind} ${r.name}`).toMatch(/mock/);
+    expect(mockBoardName('Sprint 24')).toBe('Sprint 24 · mock');
+    expect(mockColumnName('To do')).toBe('To do (mock)');
+    const titles = await t.pool.query(`select 1 from ${t.schemas.app}.cards where title ~ 'mock'`);
+    expect(titles.rowCount).toBe(0);
   });
 
   it('a second run does not overwrite an edited card title', async () => {

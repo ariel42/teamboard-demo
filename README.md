@@ -10,7 +10,7 @@ The repository contains the database package, the API, the React web client and 
 
 ```sh
 npm ci
-npm run db:setup   # migrate + seed (safe to re-run)
+npm run db:setup   # migrate + seed + Storybook mirror sb_* (safe to re-run)
 npm run dev        # API on http://localhost:3000, web on http://localhost:5173
 ```
 
@@ -51,7 +51,7 @@ Requirements: Node 24 (`engines` is `>=24 <25`, `engine-strict=true`). There is 
 | `npm run test:e2e`        | Playwright against the real stack, see "Tests and CI".                               |
 | `npm run db:migrate`      | Applies pending SQL migrations.                                                      |
 | `npm run db:seed`         | Seeds config, mock fixtures and the "Sprint 24" starter board. Idempotent.           |
-| `npm run db:setup`        | `db:migrate` then `db:seed`.                                                         |
+| `npm run db:setup`        | `db:migrate`, `db:seed`, then the insert-only `sb_*` mirror seed (Storybook Live).   |
 | `npm run db:reset`        | Drops the `app`, `config` and `mocks` schemas, then runs `db:setup`.                 |
 | `npm run lint`            | ESLint and `prettier --check`.                                                       |
 | `npm run format`          | `prettier --write`.                                                                  |

@@ -5,7 +5,12 @@ import { resolveSchemas } from '../schema-names.ts';
 import type { SchemaNames } from '../schema-names.ts';
 import type { BoardPayload } from '../types.ts';
 import { buildFixtures } from './fixtures.ts';
-import { isStorybookPrefix, scenarioSettingKey, STORYBOOK_PREFIX } from './storybook.ts';
+import {
+  isStorybookPrefix,
+  mockBoardName,
+  scenarioSettingKey,
+  STORYBOOK_PREFIX,
+} from './storybook.ts';
 
 /**
  * Read side of the Storybook mirror: builds a scenario's board payload live from `sb_app`
@@ -55,7 +60,7 @@ export async function findScenarioBoardId(
   if (mapped.rows[0]) return mapped.rows[0].id;
   const byName = await pool.query<{ id: number }>(
     `select id from ${schemas.app}.boards where name = $1 order by id limit 1`,
-    [fixture.data.board.name],
+    [mockBoardName(fixture.data.board.name)],
   );
   return byName.rows[0]?.id;
 }

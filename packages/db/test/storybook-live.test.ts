@@ -8,6 +8,7 @@ import {
   dropSchemas,
   findScenarioBoardId,
   liveSchemas,
+  mockBoardName,
   payloadVersion,
   readLiveScenario,
   resolveSchemas,
@@ -42,7 +43,7 @@ describe('storybook live read (real Postgres, throwaway prefix)', () => {
     for (const f of buildFixtures()) {
       const payload = await readLiveScenario(pool, sb, f.name);
       expect(boardPayloadSchema.safeParse(payload).success, f.name).toBe(true);
-      expect(payload.board.name).toBe(f.data.board.name);
+      expect(payload.board.name).toBe(mockBoardName(f.data.board.name));
       expect(payload.columns.flatMap((c) => c.cards)).toHaveLength(
         f.data.columns.flatMap((c) => c.cards).length,
       );
@@ -90,7 +91,7 @@ describe('storybook live read (real Postgres, throwaway prefix)', () => {
       scenarioSettingKey('overloaded'),
     ]);
     await pool.query(`delete from ${sb.app}.boards where name = $1`, [
-      buildFixtures().find((f) => f.name === 'overloaded')!.data.board.name,
+      mockBoardName(buildFixtures().find((f) => f.name === 'overloaded')!.data.board.name),
     ]);
     await expect(readLiveScenario(pool, sb, 'overloaded')).rejects.toMatchObject({ status: 503 });
   });

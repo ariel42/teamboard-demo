@@ -16,11 +16,21 @@ import { TYPICAL_BOARD } from './typical.ts';
  * Which board belongs to which scenario is recorded in `<prefix>config.settings` under the key
  * `storybook_scenario_<name>` (value: the board id), so renaming a board does not lose the link.
  * If the key is missing or not a valid board id, the board is found by the fixture's board name
- * instead (and the key is repaired).
+ * instead (the mock-marked name, see `mockBoardName`) and the key is repaired.
  */
 export const STORYBOOK_PREFIX = 'sb_';
 
 export const scenarioSettingKey = (name: string) => `storybook_scenario_${name}`;
+
+/**
+ * Every board and column name in the mirror carries a visible "mock" marker, so nobody mistakes
+ * the rows for real app data: boards get a suffix ` · mock` ("Sprint 24 · mock"), columns get
+ * ` (mock)` ("To do (mock)"). Card titles are left as they are. Applied only when seeding `sb_*`;
+ * the `mocks.fixtures` JSON keeps the plain names. The same marker is used for every scenario,
+ * the Hebrew one included (see docs/storybook.md).
+ */
+export const mockBoardName = (name: string) => `${name} · mock`;
+export const mockColumnName = (name: string) => `${name} (mock)`;
 
 export interface ScenarioResult {
   scenario: string;
@@ -53,7 +63,7 @@ async function findBoard(
   if (mapped.rows[0]) return mapped.rows[0].id;
   const byName = await client.query<{ id: number }>(
     `select id from ${schemas.app}.boards where name = $1`,
-    [fixture.data.board.name],
+    [mockBoardName(fixture.data.board.name)],
   );
   const id = byName.rows[0]?.id;
   if (id !== undefined) await recordBoard(client, schemas, key, id);
@@ -76,7 +86,7 @@ async function createScenarioBoard(
   const { board, users, columns } = fixture.data;
   const boardRes = await client.query<{ id: number }>(
     `insert into ${schemas.app}.boards (name, description) values ($1, $2) returning id`,
-    [board.name, board.description],
+    [mockBoardName(board.name), board.description],
   );
   const boardId = boardRes.rows[0]!.id;
 
@@ -105,7 +115,7 @@ async function createScenarioBoard(
     const colRes = await client.query<{ id: number }>(
       `insert into ${schemas.app}.columns (board_id, name, position) values ($1, $2, $3)
        returning id`,
-      [boardId, col.name, col.position],
+      [boardId, mockColumnName(col.name), col.position],
     );
     const columnId = colRes.rows[0]!.id;
     for (const card of col.cards) {
