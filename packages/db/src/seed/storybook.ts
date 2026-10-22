@@ -1,5 +1,5 @@
 import type { PoolClient } from 'pg';
-import { dropSchemas, runMigrations } from '../migrate.ts';
+import { runMigrations } from '../migrate.ts';
 import type { Pool } from '../pool.ts';
 import { resolveSchemas } from '../schema-names.ts';
 import type { SchemaNames } from '../schema-names.ts';
@@ -15,7 +15,8 @@ import { TYPICAL_BOARD } from './typical.ts';
  * Insert-only: a scenario whose board already exists is left alone (edits survive reruns).
  * Which board belongs to which scenario is recorded in `<prefix>config.settings` under the key
  * `storybook_scenario_<name>` (value: the board id), so renaming a board does not lose the link.
- * If the key is missing the board is found by the fixture's board name instead.
+ * If the key is missing or not a valid board id, the board is found by the fixture's board name
+ * instead (and the key is repaired).
  */
 export const STORYBOOK_PREFIX = 'sb_';
 
@@ -43,7 +44,9 @@ async function findBoard(
   const key = scenarioSettingKey(fixture.name);
   const mapped = await client.query<{ id: number }>(
     `select b.id from ${schemas.config}.settings s
-       join ${schemas.app}.boards b on b.id = (s.value #>> '{}')::int
+       join ${schemas.app}.boards b on b.id = case
+              when jsonb_typeof(s.value) = 'number' and (s.value #>> '{}') ~ '^[0-9]{1,9}$'
+              then (s.value #>> '{}')::int end
       where s.key = $1`,
     [key],
   );
@@ -187,17 +190,41 @@ export async function seedStorybook(
   return results;
 }
 
-/** Drops and recreates only this prefix's schemas, then reseeds. Refuses the unprefixed schemas. */
-export async function resetStorybook(
-  pool: Pool,
-  schemas: SchemaNames = resolveSchemas(STORYBOOK_PREFIX),
-): Promise<ScenarioResult[]> {
-  if (schemas.prefix === '') {
+const ALLOWED_PREFIX = new RegExp(`^(${STORYBOOK_PREFIX}|t[0-9a-f]{8}_(${STORYBOOK_PREFIX})?)$`);
+
+/** True for the mirror prefix `sb_` and for throwaway test prefixes (`t<hex>_`, `t<hex>_sb_`). */
+export function isStorybookPrefix(prefix: string): boolean {
+  return ALLOWED_PREFIX.test(prefix);
+}
+
+/**
+ * Drops and recreates only this prefix's schemas, then reseeds. `schemas` is required and only
+ * `sb_` or a `t<hex>_` test prefix is accepted, so a caller can never drop the real schemas by
+ * passing `resolveSchemas()` with DB_SCHEMA_PREFIX set.
+ */
+export async function resetStorybook(pool: Pool, schemas: SchemaNames): Promise<ScenarioResult[]> {
+  if (!isStorybookPrefix(schemas.prefix)) {
     throw new Error(
-      'Refusing to reset the unprefixed schemas; the storybook mirror needs a prefix.',
+      `Refusing to reset schemas with prefix "${schemas.prefix}": only "${STORYBOOK_PREFIX}" (or a test prefix) is allowed.`,
     );
   }
-  await dropSchemas(pool, schemas);
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    // Same lock as runMigrations, so a concurrent migrate cannot interleave with the drop.
+    await client.query('select pg_advisory_xact_lock(hashtext($1))', [
+      `teamboard:migrate:${schemas.raw.app}`,
+    ]);
+    await client.query(
+      `drop schema if exists ${schemas.app}, ${schemas.config}, ${schemas.mocks} cascade`,
+    );
+    await client.query('commit');
+  } catch (err) {
+    await client.query('rollback').catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
   await runMigrations(pool, schemas);
   return seedStorybook(pool, schemas);
 }

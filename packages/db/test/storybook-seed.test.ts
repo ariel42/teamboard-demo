@@ -3,6 +3,7 @@ import {
   buildFixtures,
   createRepo,
   resetStorybook,
+  resolveSchemas,
   scenarioSettingKey,
   seedStorybook,
 } from '../src/index.ts';
@@ -108,8 +109,30 @@ describe('storybook mirror seed (real Postgres, throwaway prefix)', () => {
     expect((await repo.listBoards()).map((b) => b.name)).not.toContain('Renamed');
   });
 
-  it('refuses to reset the unprefixed schemas', async () => {
-    const { resolveSchemas } = await import('../src/index.ts');
-    await expect(resetStorybook(t.pool, resolveSchemas(''))).rejects.toThrow(/Refusing/);
+  it('falls back to the board name when the stored link is not a board id', async () => {
+    const key = scenarioSettingKey('typical');
+    for (const bad of ['"abc"', '1.5', '99999999999', 'null']) {
+      await t.pool.query(
+        `update ${t.schemas.config}.settings set value = $2::jsonb where key = $1`,
+        [key, bad],
+      );
+      const again = await seedStorybook(t.pool, t.schemas);
+      expect(
+        again.every((r) => r.board === 'exists'),
+        bad,
+      ).toBe(true);
+    }
+    const ids = await boardIds();
+    expect(typeof ids.get('typical')).toBe('number');
+  });
+
+  it('refuses to reset any prefix other than sb_ or a test prefix', async () => {
+    for (const prefix of ['', 'dev_', 'app_', 'tzzzzzzzz_', 't1234567_']) {
+      await expect(resetStorybook(t.pool, resolveSchemas(prefix)), prefix).rejects.toThrow(
+        /Refusing/,
+      );
+    }
+    // Nothing was dropped.
+    expect((await repo.listBoards()).length).toBe(6);
   });
 });
